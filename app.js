@@ -10,7 +10,7 @@ const configured=!!(CFG.SUPABASE_URL&&CFG.SUPABASE_ANON_KEY&&!CFG.SUPABASE_URL.i
 const FROM_LINK=/type=(invite|recovery)/.test(location.hash);
 let sb=null,me=null;
 let S={state:'loading',tab:'rutina',w:0,d:0,err:'',info:'',busy:false,forgot:false};
-let comments={},feed=[],seenSet=new Set(),routine=null,sessions=[],draft={},clients=[],assigned=new Set(),tpl=null,lib=[],selClient=null,cSessions=[],edit=null,finish=null;
+let msgs=[],comments={},feed=[],seenSet=new Set(),routine=null,sessions=[],draft={},clients=[],assigned=new Set(),tpl=null,lib=[],selClient=null,cSessions=[],edit=null,finish=null;
 const loadJ=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch(e){return f}};
 const saveJ=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 const label=c=>(c&&(c.name||c.email))||'Cliente';
@@ -35,6 +35,7 @@ async function enter(){
   me=data;draft=loadJ('rutina-draft-'+me.id,{});S.err='';S.prevOn=false;S.prev=null;selClient=null;edit=null;finish=null;S.w=0;S.d=0;S.tab=isCoach()?'clientes':'rutina';
   if(isCoach()){S.state='coach';render();await loadCoach()}else{S.state='client';render();await loadClient()}
 }
+async function loadMsgs(){const {data}=await sb.from('messages').select('*').order('created_at',{ascending:true}).limit(400);msgs=data||[]}
 async function loadComments(ids){
   ids=[...new Set(ids)].filter(Boolean);if(!ids.length)return;
   const {data}=await sb.from('session_comments').select('*').in('session_id',ids).order('created_at',{ascending:true});
@@ -47,6 +48,7 @@ async function loadClient(){
   routine=r.data?{title:r.data.title,weeks:r.data.data.weeks}:null;
   sessions=(s.data||[]).map(x=>({...x,date:x.performed_at}));
   await loadComments(sessions.map(x=>x.id));
+  await loadMsgs();
   soft();
 }
 async function loadCoach(){
@@ -61,6 +63,7 @@ async function loadCoach(){
   const f=await sb.from('sessions').select('id,client_id,dname,wname,performed_at,feeling,notes,items').order('performed_at',{ascending:false}).limit(40);
   feed=(f.data||[]).map(x=>({...x,date:x.performed_at}));
   await loadComments(feed.map(x=>x.id));
+  await loadMsgs();
   soft();
 }
 async function loadClientSessions(id){
@@ -153,7 +156,7 @@ function clientRoutine(){
   const blockHTML=(g,gi)=>{
     const sr=g.items.find(x=>x.series),rs=g.items.find(x=>x.rest);
     const [bt,bd]=stat(g.items);
-    const legend=g.items.map((it,k)=>`<li class="ex"><span class="dot" aria-hidden="true"></span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small>${lastFor(it)?`<small class="lt">Última vez: ${esc(lastFor(it))}</small>`:''}</div>${miniVid(it)}</li>`).join('');
+    const legend=g.items.map((it,k)=>`<li class="ex"><span class="dot" aria-hidden="true"></span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small>${lastFor(it)?`<small class="lt">Última vez: ${esc(lastFor(it))}</small>`:''}</div><button class="cmx" data-act="exmsg" data-name="${esc(it.name)}" aria-label="Escribir sobre ${esc(it.name)}">💬</button>${miniVid(it)}</li>`).join('');
     const rounds=Math.max(0,...g.items.map(it=>dget(it).length));
     let rh='';
     for(let r=0;r<rounds;r++){
@@ -177,7 +180,7 @@ function clientRoutine(){
   }).join('')||'<div class="empty">Este día aún no tiene ejercicios.</div>';
   const fin=finish?`<div class="sheet"><h2>Terminar sesión</h2><div><label>Cómo te has sentido</label><div class="feel" style="margin-top:8px">${[1,2,3,4,5].map(n=>`<button data-act="feel" data-n="${n}" aria-pressed="${finish.feeling===n}">${n}</button>`).join('')}</div><div class="fl"><span>${FEEL[0]}</span><span>${FEEL[4]}</span></div></div><label>Notas para tu entrenador<textarea id="fnote" placeholder="Dolor, sensaciones, cambios que hiciste...">${esc(finish.notes)}</textarea></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" data-act="savesession" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar sesión'}</button><button class="back" data-act="cancelfin">Seguir entrenando</button></div>`
     :restBar()+`<div class="dock"><div class="dk"><b>${done}</b><small>de ${total} series</small></div><button class="rbtn" data-act="rest" aria-label="Temporizador de descanso">⏱</button><button class="btn" data-act="fin" ${done?'':'disabled'}>Terminar sesión</button></div>`;
-  return nav(routine)+`<main>${map}${cards}${fin}</main>`;
+  return nav(routine)+`<main>${map}${cards}${fin}</main>`+exmHTML()+(S.toast?`<div class="toast" role="status">${esc(S.toast)}</div>`:'');
 }
 const feelHTML=f=>{f=+f||0;return f?`<span class="fl" title="${esc(FEEL[f-1]||'')}">${[1,2,3,4,5].map(n=>`<i class="${n<=f?'on':''}"></i>`).join('')}</span><span class="fw">${esc(FEEL[f-1]||'')}</span>`:''};
 S.open=new Set();S.cmd={};
@@ -185,6 +188,33 @@ function whoIs(c,s){const mine=c.author_id===me.id;if(mine)return 'Tú';if(c.aut
 function commentsHTML(s,cs){
   return `<div class="cm"><b class="cmt">Comentarios</b>${cs.length?cs.map(c=>`<div class="cmi ${c.author_id===me.id?'me':''}"><small>${esc(whoIs(c,s))} · ${esc(fdate(c.created_at))}</small><p>${esc(c.body)}</p></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay comentarios.</p>'}<div class="cmf"><input class="cm-in" id="cm-${esc(s.id)}" data-sid="${esc(s.id)}" maxlength="1000" placeholder="${isCoach()?'Escribe al cliente…':'Escribe a tu entrenador…'}" value="${esc(S.cmd[s.id]||'')}" aria-label="Escribir comentario"><button class="btn sec" data-act="cmsend" data-sid="${esc(s.id)}">Enviar</button></div></div>`;
 }
+const KIND={bien:'👍 Bien',duro:'😅 Duro',molestia:'🤕 Molestia',duda:'❓ Duda'};
+const ftime=iso=>{try{return new Date(iso).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}};
+S.chatKind=null;S.chatDraft={};S.exm=null;S.mf='un';S.toast='';
+const unreadIn=cid=>msgs.filter(m=>m.client_id===cid&&m.author_id!==me.id&&!m.read_at);
+async function markRead(cid){const u=unreadIn(cid);if(!u.length)return;await sb.rpc('mark_read',{cid});const t=new Date().toISOString();u.forEach(m=>m.read_at=t);render()}
+function threadFor(cid){
+  const ss=isCoach()?(selClient===cid?cSessions:[]):sessions;
+  const old=ss.flatMap(s=>(comments[s.id]||[]).map(c=>({id:c.id,author_id:c.author_id,body:c.body,created_at:c.created_at,ctx:'Sesión: '+(s.dname||''),client_id:cid})));
+  return [...msgs.filter(m=>m.client_id===cid),...old].sort((x,y)=>x.created_at<y.created_at?-1:1);
+}
+function chatHTML(cid){
+  const th=threadFor(cid);let li=-1;th.forEach((m,i)=>{if(m.author_id===me.id)li=i});
+  const list=th.length?th.map((m,i)=>{const mine=m.author_id===me.id;
+    return `<div class="cmsg ${mine?'me':''}">${m.ex_name?`<span class="mctx">🏋️ ${esc(m.ex_name)}${m.ctx?' · '+esc(m.ctx):''}</span>`:(m.ctx?`<span class="mctx">${esc(m.ctx)}</span>`:'')}${m.kind?`<span class="mk k-${m.kind}">${KIND[m.kind]}</span>`:''}<p>${esc(m.body)}</p><small>${esc(ftime(m.created_at))}${mine&&i===li&&m.read_at?' · ✓ Visto':''}</small></div>`}).join(''):'<p class="hint" style="margin:auto;text-align:center">Aún no hay mensajes. Escribe el primero.</p>';
+  return `<div class="chat"><div class="cl" role="log">${list}</div><div class="kq">${Object.keys(KIND).map(k=>`<button class="kc ${S.chatKind===k?'on':''}" data-act="ckind" data-k="${k}" aria-pressed="${S.chatKind===k}">${KIND[k]}</button>`).join('')}</div><div class="cmf"><input id="chat-in" maxlength="1000" autocomplete="off" placeholder="${isCoach()?'Escribe al cliente…':'Escribe a tu entrenador…'}" value="${esc(S.chatDraft[cid]||'')}" aria-label="Mensaje"><button class="btn sec" data-act="chatsend" data-cid="${esc(cid)}">Enviar</button></div></div>`;
+}
+function msgsHTML(){
+  const cl=id=>clients.find(c=>c.id===id)||{name:'Cliente'};
+  const un=clients.map(c=>({c,n:unreadIn(c.id)})).filter(x=>x.n.length);
+  const pain=msgs.filter(m=>m.kind==='molestia'&&m.author_id===m.client_id&&Date.now()-new Date(m.created_at)<14*864e5).reverse().slice(0,8);
+  if(!un.length&&!pain.length)return '';
+  const row=(c,m,n)=>`<div class="fi ${n?'hot':''}"><button class="fib" data-act="pick" data-id="${esc(c.id)}"><span class="av sm">${esc(initial(c))}</span><span class="fit"><b>${esc(label(c))}</b><small>${m.ex_name?'🏋️ '+esc(m.ex_name)+' · ':''}${esc(ftime(m.created_at))}</small><span class="sm">${m.kind?`<span class="mk k-${m.kind}">${KIND[m.kind]}</span>`:''}${n?`<span class="tag warn">${n} sin leer</span>`:''}</span><q>${esc(m.body)}</q></span></button></div>`;
+  const items=S.mf==='pain'?pain.map(m=>row(cl(m.client_id),m,0)):un.map(x=>row(x.c,x.n[x.n.length-1],x.n.length));
+  return `<section class="feed"><h2>Mensajes</h2><div class="kq"><button class="kc ${S.mf==='un'?'on':''}" data-act="mf" data-k="un">Sin leer (${un.length})</button><button class="kc ${S.mf==='pain'?'on':''}" data-act="mf" data-k="pain">🤕 Molestias (${pain.length})</button></div>${items.join('')||'<p class="hint" style="margin:0">Nada por aquí.</p>'}</section>`;
+}
+function exmHTML(){const e=S.exm;if(!e)return '';
+  return `<div class="mo" role="dialog" aria-modal="true"><div class="mc"><h2>${esc(e.name)}</h2><small class="sub">${esc(e.ctx)}</small><div class="kq">${Object.keys(KIND).map(k=>`<button class="kc ${e.kind===k?'on':''}" data-act="ekind" data-k="${k}" aria-pressed="${e.kind===k}">${KIND[k]}</button>`).join('')}</div><textarea id="exm-t" maxlength="1000" placeholder="¿Cómo te ha ido? ¿Alguna molestia o duda?">${esc(e.text)}</textarea><button class="btn big" data-act="exsend">Enviar a mi entrenador</button><button class="back" data-act="excancel">Cancelar</button></div></div>`}
 const needsReply=s=>{const cs=comments[s.id]||[],l=cs[cs.length-1];if(l)return l.author_id===s.client_id;return !!((s.notes||'').trim()||(s.feeling&&s.feeling<=2))};
 function feedHTML(){
   const cut=Date.now()-14*864e5;
@@ -210,9 +240,10 @@ function sessionHTML(s){
   return `<details class="ses" data-sid="${esc(s.id)}"${S.open&&S.open.has(s.id)?' open':''}><summary><div class="dt"><b>${day}</b><small>${esc(mon)}</small></div><div class="si"><strong>${esc(s.dname||'Sesión')}</strong><small>${esc(wk)}${s.wname?' · '+esc(s.wname):''}</small><div class="pb"><i style="width:${pct}%"></i></div><div class="sm"><span class="tag ${d===t&&t?'ok':''}">${d}/${t} series</span>${dots}${cs.length?`<span class="tag cmb">💬 ${cs.length}</span>`:''}</div></div><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary><div class="sbody">${body}${s.notes?`<div class="snote"><b>Nota</b>${esc(s.notes)}</div>`:''}${commentsHTML(s,cs)}</div></details>`;
 }
 function clientView(){
-  const tabs=`<div class="seg"><button data-tab="rutina" aria-pressed="${S.tab==='rutina'}">Rutina</button><button data-tab="historial" aria-pressed="${S.tab==='historial'}">Historial</button></div>`;
+  const tabs=`<div class="seg"><button data-tab="rutina" aria-pressed="${S.tab==='rutina'}">Rutina</button><button data-tab="historial" aria-pressed="${S.tab==='historial'}">Historial</button><button data-tab="chat" aria-pressed="${S.tab==='chat'}">Chat${unreadIn(me.id).length?` <span class="dot2">${unreadIn(me.id).length}</span>`:''}</button></div>`;
   let body;
-  if(!routine)body=`<div class="empty" style="margin-top:20px">Tu entrenador aún no te ha asignado una rutina. Vuelve en un rato.</div>`;
+  if(S.tab==='chat')body=`<main class="panel">${chatHTML(me.id)}</main>`;
+  else if(!routine)body=`<div class="empty" style="margin-top:20px">Tu entrenador aún no te ha asignado una rutina. Vuelve en un rato.</div>`;
   else if(S.tab==='historial')body=`<main class="panel">${sessions.length?sessions.map(sessionHTML).join(''):'<div class="empty">Todavía no has guardado ninguna sesión.</div>'}</main>`;
   else body=clientRoutine();
   return topbar()+head(`<h1>${me.name?'Hola, '+esc(String(me.name).split(' ')[0]):'Tu rutina'}</h1>`,routine&&routine.title!=='Mi rutina'?esc(routine.title):'')+tabs+body;
@@ -233,9 +264,9 @@ function coachView(){
     body=`<main class="panel"><h2>Plantilla base</h2><p class="hint">Es la rutina que se copia a un cliente nuevo. Cambiarla no modifica las rutinas ya asignadas.</p>${tpl?`<button class="btn big" data-act="edittpl">Editar plantilla</button>`:'<div class="empty">Aún no hay plantilla base.</div><button class="btn big" data-act="newtpl">Crear plantilla vacía</button>'}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}</main>`;
   }else if(sel){
     const has=assigned.has(sel.id);
-    body=`<button class="back" data-act="backc">← Clientes</button><main class="panel"><h2>${esc(label(sel))}</h2><p class="hint" style="margin:0">${esc(sel.email)}</p><div class="ed2" style="display:flex;gap:8px"><input id="cname" value="${esc(sel.name||'')}" placeholder="Nombre del cliente" aria-label="Nombre del cliente"><button class="btn sec" data-act="savename">Guardar</button></div>${has?`<button class="btn big" data-act="preview" style="margin-top:10px">Ver como lo ve el cliente</button>`:''}<label class="btn sec" for="xlsc" style="display:block;text-align:center;margin-top:10px">Cargar Excel (.xlsm) para este cliente</label><input type="file" id="xlsc" accept=".xlsm,.xlsx" hidden>${has?`<button class="btn big" data-act="editr">Editar su rutina</button>`:`<div class="empty">Este cliente aún no tiene rutina.</div><button class="btn big" data-act="assign" ${tpl?'':'disabled'}>Asignar plantilla base</button>${tpl?'':'<p class="hint">Crea primero la plantilla base.</p>'}`}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<h2 style="margin-top:14px">Sesiones registradas</h2>${cSessions.length?cSessions.map(sessionHTML).join(''):'<div class="empty">Todavía no ha registrado sesiones.</div>'}</main>`;
+    body=`<button class="back" data-act="backc">← Clientes</button><main class="panel"><h2>${esc(label(sel))}</h2><p class="hint" style="margin:0">${esc(sel.email)}</p><div class="ed2" style="display:flex;gap:8px"><input id="cname" value="${esc(sel.name||'')}" placeholder="Nombre del cliente" aria-label="Nombre del cliente"><button class="btn sec" data-act="savename">Guardar</button></div>${has?`<button class="btn big" data-act="preview" style="margin-top:10px">Ver como lo ve el cliente</button>`:''}<label class="btn sec" for="xlsc" style="display:block;text-align:center;margin-top:10px">Cargar Excel (.xlsm) para este cliente</label><input type="file" id="xlsc" accept=".xlsm,.xlsx" hidden>${has?`<button class="btn big" data-act="editr">Editar su rutina</button>`:`<div class="empty">Este cliente aún no tiene rutina.</div><button class="btn big" data-act="assign" ${tpl?'':'disabled'}>Asignar plantilla base</button>${tpl?'':'<p class="hint">Crea primero la plantilla base.</p>'}`}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<h2 style="margin-top:14px">Chat</h2>${chatHTML(sel.id)}<h2 style="margin-top:14px">Sesiones registradas</h2>${cSessions.length?cSessions.map(sessionHTML).join(''):'<div class="empty">Todavía no ha registrado sesiones.</div>'}</main>`;
   }else{
-    body=`<main class="panel">${feedHTML()}<h2>Tus clientes</h2>${clients.length?clients.map(c=>`<button class="li" data-act="pick" data-id="${esc(c.id)}"><span class="who"><span class="av sm">${esc(initial(c))}</span><span><b>${esc(label(c))}</b><small>${assigned.has(c.id)?'Rutina asignada':'Sin rutina'}</small></span></span><span class="tag ${assigned.has(c.id)?'ok':''}">${assigned.has(c.id)?'Activo':'Pendiente'}</span></button>`).join(''):'<div class="empty">Aún no hay clientes. Invítalos desde Supabase: Authentication → Users → Invite user. Aparecerán aquí cuando acepten.</div>'}<button class="btn sec" data-act="reload">Actualizar lista</button></main>`;
+    body=`<main class="panel">${msgsHTML()}${feedHTML()}<h2>Tus clientes</h2>${clients.length?clients.map(c=>`<button class="li" data-act="pick" data-id="${esc(c.id)}"><span class="who"><span class="av sm">${esc(initial(c))}</span><span><b>${esc(label(c))}</b><small>${assigned.has(c.id)?'Rutina asignada':'Sin rutina'}</small></span></span>${unreadIn(c.id).length?`<span class="tag warn">${unreadIn(c.id).length} nuevo${unreadIn(c.id).length>1?'s':''}</span>`:`<span class="tag ${assigned.has(c.id)?'ok':''}">${assigned.has(c.id)?'Activo':'Pendiente'}</span>`}</button>`).join(''):'<div class="empty">Aún no hay clientes. Invítalos desde Supabase: Authentication → Users → Invite user. Aparecerán aquí cuando acepten.</div>'}<button class="btn sec" data-act="reload">Actualizar lista</button></main>`;
   }
   return topbar()+head('<h1>Panel del entrenador</h1>','Clientes y rutinas')+tabs+body;
 }
@@ -266,6 +297,7 @@ function render(){
   document.getElementById('app').innerHTML=`<div class="wrap">${h}</div>`;
   let dl=document.getElementById('lib');
   if(!dl){dl=document.createElement('datalist');dl.id='lib';document.body.append(dl)}
+  document.querySelectorAll('.cl').forEach(e=>{e.scrollTop=e.scrollHeight});
   dl.innerHTML=lib.map(x=>`<option value="${esc(x.name)}">`).join('');
 }
 
@@ -278,8 +310,21 @@ async function act(a,t){
     inp.disabled=true;const {error}=await sb.from('session_comments').insert({session_id:sid,author_id:me.id,body});
     if(error){inp.disabled=false;alert('No se pudo enviar: '+error.message);return}
     S.cmd[sid]='';await loadComments([sid]);render();const n=document.getElementById('cm-'+sid);if(n)n.focus();return}
-  if(a==='openses'){selClient=t.dataset.cid;S.open.add(t.dataset.sid);S.err='';cSessions=[];render();loadClientSessions(selClient);return}
+  if(a==='openses'){selClient=t.dataset.cid;S.open.add(t.dataset.sid);S.err='';cSessions=[];render();loadClientSessions(selClient);markRead(selClient);return}
   if(a==='seen'){seenSet.add(t.dataset.sid);try{localStorage.setItem('seen-'+me.id,JSON.stringify([...seenSet]))}catch(e){}render();return}
+  if(a==='ckind'){S.chatKind=S.chatKind===t.dataset.k?null:t.dataset.k;render();return}
+  if(a==='mf'){S.mf=t.dataset.k;render();return}
+  if(a==='chatsend'){const cid=t.dataset.cid,inp=document.getElementById('chat-in'),text=(inp.value||'').trim(),kind=S.chatKind;if(!text&&!kind)return;
+    inp.disabled=true;const {error}=await sb.from('messages').insert({client_id:cid,author_id:me.id,body:text||KIND[kind],kind});
+    if(error){inp.disabled=false;alert('No se pudo enviar: '+error.message);return}
+    S.chatDraft[cid]='';S.chatKind=null;await loadMsgs();render();const n=document.getElementById('chat-in');if(n)n.focus();return}
+  if(a==='exmsg'){const day=routine.weeks[S.w].days[S.d];S.exm={name:t.dataset.name,ctx:day.name,kind:null,text:''};render();return}
+  if(a==='ekind'){S.exm.kind=S.exm.kind===t.dataset.k?null:t.dataset.k;render();return}
+  if(a==='excancel'){S.exm=null;render();return}
+  if(a==='exsend'){const e=S.exm;if(!e.text.trim()&&!e.kind)return;
+    const {error}=await sb.from('messages').insert({client_id:me.id,author_id:me.id,body:e.text.trim()||KIND[e.kind],kind:e.kind,ex_name:e.name,ctx:e.ctx});
+    if(error){alert('No se pudo enviar: '+error.message);return}
+    S.exm=null;S.toast='Enviado a tu entrenador ✓';await loadMsgs();render();setTimeout(()=>{S.toast='';render()},2500);return}
   if(a==='photo'){S.menu=false;render();document.getElementById('avf').click();return}
   if(a==='rmphoto'){S.menu=false;await setAvatar(null);return}
   if(a==='menu'){S.menu=!S.menu;render();return}
@@ -312,7 +357,7 @@ async function act(a,t){
   }
   if(a==='endpreview'){const p=S.prev;if(p){routine=p.routine;sessions=p.sessions;draft=p.draft}S.prev=null;S.prevOn=false;S.w=0;S.d=0;render();return}
   if(a==='reload'){await loadCoach();return}
-  if(a==='pick'){selClient=t.dataset.id;S.err='';cSessions=[];render();loadClientSessions(selClient);return}
+  if(a==='pick'){selClient=t.dataset.id;S.err='';cSessions=[];render();loadClientSessions(selClient);markRead(selClient);return}
   if(a==='backc'){selClient=null;S.err='';render();return}
   if(a==='savename'){const v=document.getElementById('cname').value.trim();const {error}=await sb.from('profiles').update({name:v||null}).eq('id',selClient);if(error)S.err=werr(error);else{S.err='';clients.find(c=>c.id===selClient).name=v}render();return}
   if(a==='newtpl'){const d={title:'Mi rutina',weeks:[{name:'Semana 1',days:[{name:'Día 1',items:[]}]}]};const {error}=await sb.from('templates').upsert({id:'base',data:d});if(error){S.err=werr(error);render()}else{tpl=d;render()}return}
@@ -443,6 +488,8 @@ document.addEventListener('submit',async e=>{
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.classList&&t.classList.contains('cm-in')){S.cmd[t.dataset.sid]=t.value;return}
+  if(t.id==='chat-in'){S.chatDraft[isCoach()?selClient:me.id]=t.value;return}
+  if(t.id==='exm-t'&&S.exm){S.exm.text=t.value;return}
   if(t.id==='ttl'&&edit){edit.model.title=t.value;return}
   if(t.id==='fnote'&&finish){finish.notes=t.value;return}
   if(edit){
@@ -474,12 +521,13 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('button');if(!t)return;
   if(t.dataset.go){const el=document.getElementById(t.dataset.go);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return}
   const y=scrollY;
-  if(t.dataset.tab){S.tab=t.dataset.tab;selClient=null;S.err='';render();return}
+  if(t.dataset.tab){S.tab=t.dataset.tab;selClient=null;S.err='';render();if(S.tab==='chat'&&me)markRead(me.id);return}
   if(t.dataset.w!==undefined){S.w=+t.dataset.w;S.d=0;render();scrollTo(0,y);return}
   if(t.dataset.d!==undefined){S.d=+t.dataset.d;render();scrollTo(0,y);return}
   if(t.dataset.act)act(t.dataset.act,t).then(()=>scrollTo(0,y));
 });
 boot();
 
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList&&e.target.classList.contains('cm-in')){e.preventDefault();const b=e.target.parentElement.querySelector('[data-act=cmsend]');if(b)b.click()}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList&&(e.target.classList.contains('cm-in')||e.target.id==='chat-in')){e.preventDefault();const b=e.target.parentElement.querySelector('[data-act=cmsend],[data-act=chatsend]');if(b)b.click()}});
+setInterval(async()=>{if(!me||!sb||document.hidden||S.exm||S.state==='login')return;try{await loadMsgs();const c=isCoach()?selClient:(S.tab==='chat'?me.id:null);if(c)await markRead(c);soft()}catch(e){}},15000);
 document.addEventListener('toggle',e=>{const d=e.target;if(d.matches&&d.matches('details.ses')){const id=d.dataset.sid;if(d.open)S.open.add(id);else S.open.delete(id)}},true);
