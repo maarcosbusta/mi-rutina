@@ -1,6 +1,7 @@
 /* Mi Rutina: cuentas por invitación, rutinas, registro de sesiones y panel del entrenador. */
 const PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
-const FEEL=['Muy dura','Dura','Normal','Bien','Genial'];
+const FEEL=['Casi sin esfuerzo','Fácil','Moderado','Duro','Esfuerzo máximo'];
+const FSHORT=['Sin esfuerzo','Fácil','Moderado','Duro','Máximo'];
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const uid=()=>'e'+Math.random().toString(36).slice(2,9);
 const fdate=iso=>{try{return new Date(iso).toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})}catch(e){return ''}};
@@ -178,11 +179,11 @@ function clientRoutine(){
     if(g.block)return blockHTML(g,gi);
     return `<article class="card bcard">${g.items.map(exHTML).join('')}</article>`;
   }).join('')||'<div class="empty">Este día aún no tiene ejercicios.</div>';
-  const fin=finish?`<div class="sheet"><h2>Terminar sesión</h2><div><label>Cómo te has sentido</label><div class="feel" style="margin-top:8px">${[1,2,3,4,5].map(n=>`<button data-act="feel" data-n="${n}" aria-pressed="${finish.feeling===n}">${n}</button>`).join('')}</div><div class="fl"><span>${FEEL[0]}</span><span>${FEEL[4]}</span></div></div><label>Notas para tu entrenador<textarea id="fnote" placeholder="Dolor, sensaciones, cambios que hiciste...">${esc(finish.notes)}</textarea></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" data-act="savesession" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar sesión'}</button><button class="back" data-act="cancelfin">Seguir entrenando</button></div>`
+  const fin=finish?`<div class="sheet"><h2>Terminar sesión</h2><div><label>¿Qué esfuerzo has sentido en esta sesión?</label><div class="feel" style="margin-top:8px">${[1,2,3,4,5].map(n=>`<button class="e${n}" data-act="feel" data-n="${n}" aria-pressed="${finish.feeling===n}"><b>${n}</b><small>${FSHORT[n-1]}</small></button>`).join('')}</div><p class="ft">${finish.feeling?`<b>${finish.feeling}</b> · ${FEEL[finish.feeling-1]}`:'1 = casi sin esfuerzo · 5 = esfuerzo máximo'}</p></div><label>Notas para tu entrenador<textarea id="fnote" placeholder="Dolor, sensaciones, cambios que hiciste...">${esc(finish.notes)}</textarea></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" data-act="savesession" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar sesión'}</button><button class="back" data-act="cancelfin">Seguir entrenando</button></div>`
     :restBar()+`<div class="dock"><div class="dk"><b>${done}</b><small>de ${total} series</small></div><button class="rbtn" data-act="rest" aria-label="Temporizador de descanso">⏱</button><button class="btn" data-act="fin" ${done?'':'disabled'}>Terminar sesión</button></div>`;
   return nav(routine)+`<main>${map}${cards}${fin}</main>`+exmHTML()+(S.toast?`<div class="toast" role="status">${esc(S.toast)}</div>`:'');
 }
-const feelHTML=f=>{f=+f||0;return f?`<span class="fl" title="${esc(FEEL[f-1]||'')}">${[1,2,3,4,5].map(n=>`<i class="${n<=f?'on':''}"></i>`).join('')}</span><span class="fw">${esc(FEEL[f-1]||'')}</span>`:''};
+const feelHTML=f=>{f=+f||0;return f?`<span class="fl l${f}" title="${esc(FEEL[f-1]||'')}">${[1,2,3,4,5].map(n=>`<i class="${n<=f?'on':''}"></i>`).join('')}</span><span class="fw">${esc(FEEL[f-1]||'')}</span>`:''};
 S.open=new Set();S.cmd={};
 function whoIs(c,s){const mine=c.author_id===me.id;if(mine)return 'Tú';if(c.author_id===s.client_id)return label(clients.find(x=>x.id===s.client_id)||{name:'Cliente'});return 'Entrenador'}
 function commentsHTML(s,cs){
@@ -215,7 +216,7 @@ function msgsHTML(){
 }
 function exmHTML(){const e=S.exm;if(!e)return '';
   return `<div class="mo" role="dialog" aria-modal="true"><div class="mc"><h2>${esc(e.name)}</h2><small class="sub">${esc(e.ctx)}</small><div class="kq">${Object.keys(KIND).map(k=>`<button class="kc ${e.kind===k?'on':''}" data-act="ekind" data-k="${k}" aria-pressed="${e.kind===k}">${KIND[k]}</button>`).join('')}</div><textarea id="exm-t" maxlength="1000" placeholder="¿Cómo te ha ido? ¿Alguna molestia o duda?">${esc(e.text)}</textarea><button class="btn big" data-act="exsend">Enviar a mi entrenador</button><button class="back" data-act="excancel">Cancelar</button></div></div>`}
-const needsReply=s=>{const cs=comments[s.id]||[],l=cs[cs.length-1];if(l)return l.author_id===s.client_id;return !!((s.notes||'').trim()||(s.feeling&&s.feeling<=2))};
+const needsReply=s=>{const cs=comments[s.id]||[],l=cs[cs.length-1];if(l)return l.author_id===s.client_id;return !!((s.notes||'').trim()||(s.feeling&&s.feeling>=4))};
 function feedHTML(){
   const cut=Date.now()-14*864e5;
   const rec=feed.filter(s=>new Date(s.date)>cut);
