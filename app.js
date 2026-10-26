@@ -115,12 +115,29 @@ function clientRoutine(){
   };
   const groups=[];
   day.items.forEach(it=>{const g=groups[groups.length-1];if(it.block&&g&&g.block===it.block)g.items.push(it);else groups.push({block:it.block||'',items:[it]})});
-  const cards=groups.map((g,gi)=>{
+  const miniVid=it=>it.video?`<a class="vid sm" href="${esc(it.video)}" target="_blank" rel="noopener" aria-label="Ver vídeo de ${esc(it.name)}">${PLAY}Vídeo</a>`:'';
+  const planOf=it=>[it.reps,it.kg&&('Carga: '+n$(it.kg))].filter(Boolean).join(' · ');
+  const blockHTML=(g,gi)=>{
     const sr=g.items.find(x=>x.series),rs=g.items.find(x=>x.rest);
-    const inner=g.items.map((it,k)=>exHTML(it,g.block?String.fromCharCode(65+gi)+(k+1):'',!g.block)).join('');
+    const L=k=>String.fromCharCode(65+gi)+(k+1);
+    g.items.forEach(it=>{const st=dget(it);total+=st.length;done+=st.filter(x=>x.done).length});
     const all=g.items.every(it=>dget(it).every(x=>x.done));
-    const hd=g.block?`<div class="bh"><b>${esc(bname(g.block))}</b><small>${g.items.length>1?'Superserie · ':''}${sr?esc(sr.series)+' series':''}${rs?' · descanso '+esc(rs.rest):''}</small></div>`:'';
-    return `<article class="card bcard ${all?'done':''}">${hd}${inner}</article>`;
+    const legend=g.items.map((it,k)=>`<div class="lg"><span class="tg">${L(k)}</span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small></div>${miniVid(it)}</div>`).join('');
+    const rounds=Math.max(0,...g.items.map(it=>dget(it).length));
+    let rh='';
+    for(let r=0;r<rounds;r++){
+      rh+=`<div class="round"><div class="rh">Serie ${r+1}</div>`+g.items.map((it,k)=>{
+        const s=dget(it)[r];if(!s)return '';
+        const ctl=isCardio(it)?`<span class="rc">${esc(it.series||'')} min</span>`
+          :`<input inputmode="decimal" data-ex="${it.id}" data-i="${r}" data-fld="kg" value="${esc(s.kg)}" placeholder="${/^\d/.test(it.kg||'')?esc(it.kg):'kg'}" aria-label="Kilos ${esc(it.name)} serie ${r+1}"><input inputmode="numeric" data-ex="${it.id}" data-i="${r}" data-fld="reps" value="${esc(s.reps)}" placeholder="reps" aria-label="Repeticiones ${esc(it.name)} serie ${r+1}">`;
+        return `<div class="rrow"><span class="rn"><b>${L(k)}</b>${esc(it.name)}</span>${ctl}<button class="set" data-ex="${it.id}" data-i="${r}" data-act="tog" aria-pressed="${s.done}" aria-label="${esc(it.name)} serie ${r+1} hecha">${s.done?'✓':'•'}</button></div>`;
+      }).join('')+`</div>`;
+    }
+    return `<article class="card bcard ${all?'done':''}"><div class="bh"><b>${esc(bname(g.block))}</b><small>${g.items.length>1?'Superserie · ':''}${sr?esc(sr.series)+' series':''}${rs?' · descanso '+esc(rs.rest):''}</small></div><div class="leg-wrap">${legend}</div>${rh}</article>`;
+  };
+  const cards=groups.map((g,gi)=>{
+    if(g.block)return blockHTML(g,gi);
+    return `<article class="card bcard ${g.items.every(it=>dget(it).every(x=>x.done))?'done':''}">${g.items.map(it=>exHTML(it,'',true)).join('')}</article>`;
   }).join('')||'<div class="empty">Este día aún no tiene ejercicios.</div>';
   const fin=finish?`<div class="sheet"><h2>Terminar sesión</h2><div><label>Cómo te has sentido</label><div class="feel" style="margin-top:8px">${[1,2,3,4,5].map(n=>`<button data-act="feel" data-n="${n}" aria-pressed="${finish.feeling===n}">${n}</button>`).join('')}</div><div class="fl"><span>${FEEL[0]}</span><span>${FEEL[4]}</span></div></div><label>Notas para tu entrenador<textarea id="fnote" placeholder="Dolor, sensaciones, cambios que hiciste...">${esc(finish.notes)}</textarea></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" data-act="savesession" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar sesión'}</button><button class="back" data-act="cancelfin">Seguir entrenando</button></div>`
     :`<button class="btn big" style="margin-top:6px" data-act="fin" ${done?'':'disabled'}>Terminar sesión</button>`;
