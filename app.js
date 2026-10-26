@@ -225,6 +225,7 @@ function msgsHTML(){
 }
 function exmHTML(){const e=S.exm;if(!e)return '';
   return `<div class="mo" role="dialog" aria-modal="true"><div class="mc"><h2>${esc(e.name)}</h2><small class="sub">${esc(e.ctx)}</small><div class="kq">${Object.keys(KIND).map(k=>`<button class="kc ${e.kind===k?'on':''}" data-act="ekind" data-k="${k}" aria-pressed="${e.kind===k}">${KIND[k]}</button>`).join('')}</div><textarea id="exm-t" maxlength="1000" placeholder="¿Cómo te ha ido? ¿Alguna molestia o duda?">${esc(e.text)}</textarea><button class="btn big" data-act="exsend">Enviar a mi entrenador</button><button class="back" data-act="excancel">Cancelar</button></div></div>`}
+const actN=()=>clients.reduce((n,c)=>n+unreadIn(c.id).length,0)+feed.filter(s=>new Date(s.date)>Date.now()-14*864e5&&needsReply(s)&&!seenSet.has(s.id)).length;
 const needsReply=s=>{const cs=comments[s.id]||[],l=cs[cs.length-1];if(l)return l.author_id===s.client_id;return !!((s.notes||'').trim()||(s.feeling&&s.feeling>=4))};
 function feedHTML(){
   const cut=Date.now()-14*864e5;
@@ -267,7 +268,7 @@ function previewView(){
 function coachView(){
   if(S.prevOn&&routine)return previewView();
   if(edit)return editorView();
-  const tabs=`<div class="seg"><button data-tab="clientes" aria-pressed="${S.tab!=='plantilla'}">Clientes</button><button data-tab="plantilla" aria-pressed="${S.tab==='plantilla'}">Plantilla</button></div>`;
+  const tabs=`<div class="seg"><button data-tab="clientes" aria-pressed="${S.tab==='clientes'}">Clientes</button><button data-tab="actividad" aria-pressed="${S.tab==='actividad'}">Actividad${actN()?` <span class="dot2">${actN()}</span>`:''}</button><button data-tab="plantilla" aria-pressed="${S.tab==='plantilla'}">Plantilla</button></div>`;
   let body='';
   const sel=clients.find(c=>c.id===selClient);
   if(S.tab==='plantilla'){
@@ -276,7 +277,7 @@ function coachView(){
     const has=assigned.has(sel.id);
     body=`<button class="back" data-act="backc">← Clientes</button><main class="panel"><h2>${esc(label(sel))}</h2><p class="hint" style="margin:0">${esc(sel.email)}</p><div class="ed2" style="display:flex;gap:8px"><input id="cname" value="${esc(sel.name||'')}" placeholder="Nombre del cliente" aria-label="Nombre del cliente"><button class="btn sec" data-act="savename">Guardar</button></div>${has?`<button class="btn big" data-act="preview" style="margin-top:10px">Ver como lo ve el cliente</button>`:''}<label class="btn sec" for="xlsc" style="display:block;text-align:center;margin-top:10px">Cargar Excel (.xlsm) para este cliente</label><input type="file" id="xlsc" accept=".xlsm,.xlsx" hidden>${has?`<button class="btn big" data-act="editr">Editar su rutina</button>`:`<div class="empty">Este cliente aún no tiene rutina.</div><button class="btn big" data-act="assign" ${tpl?'':'disabled'}>Asignar plantilla base</button>${tpl?'':'<p class="hint">Crea primero la plantilla base.</p>'}`}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<h2 style="margin-top:14px">Chat</h2>${chatHTML(sel.id)}<h2 style="margin-top:14px">Sesiones registradas</h2>${cSessions.length?cSessions.map(sessionHTML).join(''):'<div class="empty">Todavía no ha registrado sesiones.</div>'}</main>`;
   }else{
-    body=`<main class="panel">${msgsHTML()}${feedHTML()}<h2>Tus clientes</h2>${clients.length?clients.map(c=>`<button class="li" data-act="pick" data-id="${esc(c.id)}"><span class="who"><span class="av sm">${esc(initial(c))}</span><span><b>${esc(label(c))}</b><small>${assigned.has(c.id)?'Rutina asignada':'Sin rutina'}</small></span></span>${unreadIn(c.id).length?`<span class="tag warn">${unreadIn(c.id).length} nuevo${unreadIn(c.id).length>1?'s':''}</span>`:`<span class="tag ${assigned.has(c.id)?'ok':''}">${assigned.has(c.id)?'Activo':'Pendiente'}</span>`}</button>`).join(''):'<div class="empty">Aún no hay clientes. Invítalos desde Supabase: Authentication → Users → Invite user. Aparecerán aquí cuando acepten.</div>'}<button class="btn sec" data-act="reload">Actualizar lista</button></main>`;
+    body=S.tab==='actividad'?`<main class="panel">${msgsHTML()}${feedHTML()||''}${!msgsHTML()&&!feedHTML()?'<div class="empty">Aún no hay actividad de tus clientes.</div>':''}</main>`:`<main class="panel"><h2>Tus clientes</h2>${clients.length?clients.map(c=>`<button class="li" data-act="pick" data-id="${esc(c.id)}"><span class="who"><span class="av sm">${esc(initial(c))}</span><span><b>${esc(label(c))}</b><small>${assigned.has(c.id)?'Rutina asignada':'Sin rutina'}</small></span></span>${unreadIn(c.id).length?`<span class="tag warn">${unreadIn(c.id).length} nuevo${unreadIn(c.id).length>1?'s':''}</span>`:`<span class="tag ${assigned.has(c.id)?'ok':''}">${assigned.has(c.id)?'Activo':'Pendiente'}</span>`}</button>`).join(''):'<div class="empty">Aún no hay clientes. Invítalos desde Supabase: Authentication → Users → Invite user. Aparecerán aquí cuando acepten.</div>'}<button class="btn sec" data-act="reload">Actualizar lista</button></main>`;
   }
   return topbar()+head('<h1>Panel del entrenador</h1>','Clientes y rutinas')+tabs+body;
 }
