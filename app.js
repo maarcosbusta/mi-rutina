@@ -24,16 +24,19 @@ async function boot(){
   if(!configured){S.state='noconfig';render();return}
   sb=supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY);
   sb.auth.onAuthStateChange(ev=>{if(ev==='PASSWORD_RECOVERY'){S.state='setpw';render()}});
-  const {data}=await sb.auth.getSession();
+  let data;try{({data}=await sb.auth.getSession())}catch(e){S.state='offline';render();return}
   if(FROM_LINK){S.state=data.session?'setpw':'login';render();return}
   if(data.session)await enter();else{S.state='login';render()}
 }
+const netErr=e=>!!e&&(!navigator.onLine||/fetch|network|load failed|timeout|offline/i.test(String(e.message||e)));
 async function enter(){
-  const {data:{user}}=await sb.auth.getUser();
+  let user;try{({data:{user}}=await sb.auth.getUser())}catch(e){S.state='offline';render();return}
   if(!user){S.state='login';render();return}
   const {data,error}=await sb.from('profiles').select('*').eq('id',user.id).single();
+  if(netErr(error)){S.state='offline';render();return}
   if(error||!data){S.state='login';S.err='No se pudo cargar tu perfil. Avisa a tu entrenador.';render();return}
   me=data;draft=loadJ('rutina-draft-'+me.id,{});S.err='';S.prevOn=false;S.prev=null;selClient=null;edit=null;finish=null;S.w=0;S.d=0;S.tab=isCoach()?'clientes':'rutina';
+  S.welcome=!isCoach()&&!(()=>{try{return localStorage.getItem('welcome-'+me.id)}catch(e){return 1}})();
   if(isCoach()){S.state='coach';render();await loadCoach()}else{S.state='client';render();await loadClient()}
 }
 async function loadMsgs(){const {data}=await sb.from('messages').select('*').order('created_at',{ascending:true}).limit(400);msgs=data||[]}
@@ -46,6 +49,7 @@ async function loadClient(){
   const [r,s]=await Promise.all([
     sb.from('routines').select('title,data').eq('client_id',me.id).maybeSingle(),
     sb.from('sessions').select('*').eq('client_id',me.id).order('performed_at',{ascending:false}).limit(40)]);
+  if(netErr(r.error)||netErr(s.error)){S.state='offline';render();return}
   routine=r.data?{title:r.data.title,weeks:r.data.data.weeks}:null;
   sessions=(s.data||[]).map(x=>({...x,date:x.performed_at}));
   await loadComments(sessions.map(x=>x.id));
@@ -57,6 +61,7 @@ async function loadCoach(){
     sb.from('profiles').select('id,email,name,role').eq('role','client').order('email'),
     sb.from('routines').select('client_id'),
     sb.from('templates').select('id,data')]);
+  if(netErr(c.error)||netErr(r.error)){S.state='offline';render();return}
   clients=c.data||[];assigned=new Set((r.data||[]).map(x=>x.client_id));
   const base=(t.data||[]).find(x=>x.id==='base'),lb=(t.data||[]).find(x=>x.id==='lib');
   tpl=base?base.data:null;lib=lb?(lb.data.items||[]):[];
@@ -104,6 +109,9 @@ function normNav(m){
 }
 
 /* ---------- acceso ---------- */
+function offlineView(){return `<div class="hero">${MARK}</div>`+head('<h1>Sin conexión</h1>','No consigo conectar con el servidor.')+`<main class="panel"><p class="hint" style="margin:0">Revisa tu wifi o tus datos móviles y vuelve a intentarlo. No se ha perdido nada de lo que habías anotado.</p><button class="btn big" data-act="retry">Reintentar</button></main>`}
+function welcomeHTML(){const n=me.name?String(me.name).split(' ')[0]:'';
+  return `<div class="mo" role="dialog" aria-modal="true"><div class="mc"><h2>¡Bienvenido${n?', '+esc(n):''}!</h2><small class="sub">Tu entrenador: ${esc(TRAINER)}</small><ol class="wl"><li><b>Elige tu día</b> y ve bloque a bloque.</li><li><b>Apunta kg y repeticiones</b> y marca ✓ cada serie. El ⏱ cuenta tu descanso.</li><li><b>Al acabar</b>, pulsa «Terminar sesión» y puntúa el esfuerzo del 1 al 5.</li><li><b>¿Dudas o molestias?</b> Escríbeme con 💬 en un ejercicio o en la pestaña Chat.</li></ol><button class="btn big" data-act="welcomeok">Empezar</button></div></div>`}
 function loginView(){
   if(S.forgot)return head('<h1>Mi rutina</h1>','')+`<form class="auth" id="fForgot"><p class="hint">Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.</p><label>Correo<input type="email" id="em" autocomplete="email" required></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}${S.info?`<div class="ok" role="status">${esc(S.info)}</div>`:''}<button class="btn big" ${S.busy?'disabled':''}>${S.busy?'Enviando…':'Enviar enlace'}</button><button type="button" class="linkb" data-act="backlogin">Volver</button></form>`;
   return `<div class="hero">${MARK}</div>`+head('<h1>Mi rutina</h1>','Entrenador: '+TRAINER)+`<p class="hint" style="margin:0 0 6px">Entra con tu cuenta</p><form class="auth" id="fLogin"><label>Correo<input type="email" id="em" autocomplete="email" required></label><label>Contraseña<input type="password" id="pw" autocomplete="current-password" required></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" ${S.busy?'disabled':''}>${S.busy?'Entrando…':'Entrar'}</button><button type="button" class="linkb" data-act="forgot">He olvidado mi contraseña</button><p class="hint">¿Aún no tienes cuenta? Tu entrenador te enviará una invitación por correo.</p></form>`;
@@ -247,7 +255,7 @@ function clientView(){
   else if(!routine)body=`<div class="empty" style="margin-top:20px">Tu entrenador aún no te ha asignado una rutina. Vuelve en un rato.</div>`;
   else if(S.tab==='historial')body=`<main class="panel">${sessions.length?sessions.map(sessionHTML).join(''):'<div class="empty">Todavía no has guardado ninguna sesión.</div>'}</main>`;
   else body=clientRoutine();
-  return topbar()+head(`<h1>${me.name?'Hola, '+esc(String(me.name).split(' ')[0]):'Tu rutina'}</h1>`,routine&&routine.title!=='Mi rutina'?esc(routine.title):'')+tabs+body;
+  return (S.welcome?welcomeHTML():'')+topbar()+head(`<h1>${me.name?'Hola, '+esc(String(me.name).split(' ')[0]):'Tu rutina'}</h1>`,routine&&routine.title!=='Mi rutina'?esc(routine.title):'')+tabs+body;
 }
 
 /* ---------- entrenador ---------- */
@@ -291,11 +299,12 @@ function render(){
     case 'loading':h=head('<h1>Mi rutina</h1>','Cargando…');break;
     case 'noconfig':h=noconfigView();break;
     case 'login':h=loginView();break;
+    case 'offline':h=offlineView();break;
     case 'setpw':h=setpwView();break;
     case 'coach':h=coachView();break;
     default:h=clientView();
   }
-  document.getElementById('app').innerHTML=`<div class="wrap">${h}</div>`;
+  document.getElementById('app').innerHTML=`<div class="wrap">${S.off?'<div class="offb" role="status">Sin conexión. Vuelve a conectarte para guardar o enviar.</div>':''}${h}</div>`;
   let dl=document.getElementById('lib');
   if(!dl){dl=document.createElement('datalist');dl.id='lib';document.body.append(dl)}
   document.querySelectorAll('.cl').forEach(e=>{e.scrollTop=e.scrollHeight});
@@ -326,6 +335,8 @@ async function act(a,t){
     const {error}=await sb.from('messages').insert({client_id:me.id,author_id:me.id,body:e.text.trim()||KIND[e.kind],kind:e.kind,ex_name:e.name,ctx:e.ctx});
     if(error){alert('No se pudo enviar: '+error.message);return}
     S.exm=null;S.toast='Enviado a tu entrenador ✓';await loadMsgs();render();setTimeout(()=>{S.toast='';render()},2500);return}
+  if(a==='retry'){S.state='loading';render();if(sb)await enter();else boot();return}
+  if(a==='welcomeok'){S.welcome=false;try{localStorage.setItem('welcome-'+me.id,'1')}catch(e){}render();return}
   if(a==='photo'){S.menu=false;render();document.getElementById('avf').click();return}
   if(a==='rmphoto'){S.menu=false;await setAvatar(null);return}
   if(a==='menu'){S.menu=!S.menu;render();return}
@@ -532,3 +543,5 @@ boot();
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList&&(e.target.classList.contains('cm-in')||e.target.id==='chat-in')){e.preventDefault();const b=e.target.parentElement.querySelector('[data-act=cmsend],[data-act=chatsend]');if(b)b.click()}});
 setInterval(async()=>{if(!me||!sb||document.hidden||S.exm||S.state==='login')return;try{await loadMsgs();const c=isCoach()?selClient:(S.tab==='chat'?me.id:null);if(c)await markRead(c);soft()}catch(e){}},15000);
 document.addEventListener('toggle',e=>{const d=e.target;if(d.matches&&d.matches('details.ses')){const id=d.dataset.sid;if(d.open)S.open.add(id);else S.open.delete(id)}},true);
+
+addEventListener('offline',()=>{S.off=true;render()});addEventListener('online',()=>{S.off=false;render()});

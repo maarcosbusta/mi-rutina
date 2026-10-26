@@ -245,3 +245,6 @@ details.ses summary::-webkit-details-marker{display:none}
 .feel .e3[aria-pressed=true]{background:#D9951A;border-color:#D9951A;color:#11171C}
 .feel .e4[aria-pressed=true],.feel .e5[aria-pressed=true]{background:#C0392B;border-color:#C0392B;color:#fff}
 .fl.l3 i.on{background:#D9951A}.fl.l4 i.on,.fl.l5 i.on{background:#C0392B}
+
+.offb{position:sticky;top:0;z-index:50;margin:8px 0 0;background:#C0392B;color:#fff;font:700 13.5px var(--body);border-radius:12px;padding:9px 14px;text-align:center}
+.wl{margin:0;padding-left:20px;display:grid;gap:10px;font-size:16px;line-height:1.35}.wl b{font-weight:800}
