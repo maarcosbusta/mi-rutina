@@ -105,3 +105,5 @@ details.ses .ex strong{display:block}
 .ok{color:var(--done);font-size:14px}
 .linkb{background:none;border:0;color:var(--muted);text-decoration:underline;font:inherit;cursor:pointer;padding:6px;justify-self:start}
 .topbar{display:flex;justify-content:flex-end;padding-top:10px}
+
+.blk{margin:18px 2px 8px;padding-top:4px}.blk b{display:block;font:700 19px var(--display);letter-spacing:.02em}.blk small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
