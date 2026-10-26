@@ -60,7 +60,7 @@ async function loadClientSessions(id){
 
 /* ---------- piezas comunes ---------- */
 const head=(t,sub)=>`<header>${t}<div class="sub">${sub||''}</div></header>`;
-const topbar=()=>me?`<div class="topbar"><button class="linkb" data-act="logout">Salir (${esc(me.email)})</button></div>`:'';
+const topbar=()=>me?`<div class="topbar"><button class="linkb" data-act="chpw">Cambiar contraseña</button> · <button class="linkb" data-act="logout">Salir (${esc(me.email)})</button></div>`:'';
 function facts(it){
   const f=[];
   if(it.cat==='Cardio'){if(it.series)f.push(['Duración',it.series+' min','big']);if(it.reps)f.push(['Intensidad',it.reps]);}
@@ -87,7 +87,7 @@ function loginView(){
   return head('<h1>Mi rutina</h1>','Entra con tu cuenta')+`<form class="auth" id="fLogin"><label>Correo<input type="email" id="em" autocomplete="email" required></label><label>Contraseña<input type="password" id="pw" autocomplete="current-password" required></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" ${S.busy?'disabled':''}>${S.busy?'Entrando…':'Entrar'}</button><button type="button" class="linkb" data-act="forgot">He olvidado mi contraseña</button><p class="hint">¿Aún no tienes cuenta? Tu entrenador te enviará una invitación por correo.</p></form>`;
 }
 function setpwView(){
-  return head('<h1>Crea tu contraseña</h1>','Último paso para entrar')+`<form class="auth" id="fSetpw"><label>Contraseña nueva (mínimo 8 caracteres)<input type="password" id="pw" autocomplete="new-password" minlength="8" required></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar y entrar'}</button></form>`;
+  return head(S.chpw?'<h1>Cambiar contraseña</h1>':'<h1>Crea tu contraseña</h1>',S.chpw?'':'Último paso para entrar')+`<form class="auth" id="fSetpw"><label>Contraseña nueva (mínimo 8 caracteres)<input type="password" id="pw" autocomplete="new-password" minlength="8" required></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" ${S.busy?'disabled':''}>${S.busy?'Guardando…':(S.chpw?'Guardar contraseña':'Guardar y entrar')}</button>${S.chpw?'<button type="button" class="linkb" data-act="cancelpw">Cancelar</button>':''}</form>`;
 }
 const noconfigView=()=>head('<h1>Falta configurar</h1>','')+`<div class="hero"><p>Abre el archivo <b>config.js</b> y pega la URL y la clave de tu proyecto de Supabase. Los pasos están en GUIA.md.</p></div>`;
 
@@ -183,6 +183,8 @@ const werr=e=>e&&e.message?('No se pudo guardar: '+e.message):'No se pudo guarda
 function saveDraft(){saveJ('rutina-draft-'+me.id,draft)}
 async function act(a,t){
   if(a==='logout'){await sb.auth.signOut();me=null;routine=null;sessions=[];selClient=null;edit=null;finish=null;S.state='login';S.err='';render();return}
+  if(a==='chpw'){S.chpw=true;S.err='';S.state='setpw';render();return}
+  if(a==='cancelpw'){S.chpw=false;S.err='';await enter();return}
   if(a==='forgot'){S.forgot=true;S.err='';S.info='';render();return}
   if(a==='backlogin'){S.forgot=false;S.err='';S.info='';render();return}
   if(a==='tog'){const it=findEx(t.dataset.ex);const s=dget(it)[+t.dataset.i];s.done=!s.done;saveDraft();render();return}
@@ -314,7 +316,7 @@ document.addEventListener('submit',async e=>{
     const {error}=await sb.auth.updateUser({password:pw});
     S.busy=false;
     if(error){S.err=error.message;render();return}
-    history.replaceState(null,'',location.pathname);await enter();
+    S.chpw=false;history.replaceState(null,'',location.pathname);await enter();
   }
 });
 document.addEventListener('input',e=>{
