@@ -126,9 +126,8 @@ function clientRoutine(){
   const planOf=it=>[it.reps,it.kg&&('Carga: '+n$(it.kg))].filter(Boolean).join(' · ');
   const blockHTML=(g,gi)=>{
     const sr=g.items.find(x=>x.series),rs=g.items.find(x=>x.rest);
-    const L=k=>String.fromCharCode(65+gi)+(k+1);
     const [bt,bd]=stat(g.items);
-    const legend=g.items.map((it,k)=>`<li class="ex"><span class="tg">${L(k)}</span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small></div>${miniVid(it)}</li>`).join('');
+    const legend=g.items.map((it,k)=>`<li class="ex"><span class="dot" aria-hidden="true"></span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small></div>${miniVid(it)}</li>`).join('');
     const rounds=Math.max(0,...g.items.map(it=>dget(it).length));
     let rh='';
     for(let r=0;r<rounds;r++){
@@ -138,7 +137,7 @@ function clientRoutine(){
         const s=dget(it)[r];if(!s)return '';
         const ctl=isCardio(it)?`<span class="rc">${esc(it.series||'')} min</span>`
           :`<input inputmode="decimal" data-ex="${it.id}" data-i="${r}" data-fld="kg" value="${esc(s.kg)}" placeholder="${/^\d/.test(it.kg||'')?esc(it.kg):'kg'}" aria-label="Kilos ${esc(it.name)} serie ${r+1}"><input inputmode="numeric" data-ex="${it.id}" data-i="${r}" data-fld="reps" value="${esc(s.reps)}" placeholder="reps" aria-label="Repeticiones ${esc(it.name)} serie ${r+1}">`;
-        return `<div class="rrow"><span class="rn"><span class="tg">${L(k)}</span><em>${esc(it.name)}</em></span>${ctl}<button class="set" data-ex="${it.id}" data-i="${r}" data-act="tog" aria-pressed="${s.done}" aria-label="${esc(it.name)} serie ${r+1} hecha">${s.done?'✓':'•'}</button></div>`;
+        return `<div class="rrow"><span class="rn"><em>${esc(it.name)}</em></span>${ctl}<button class="set" data-ex="${it.id}" data-i="${r}" data-act="tog" aria-pressed="${s.done}" aria-label="${esc(it.name)} serie ${r+1} hecha">${s.done?'✓':'•'}</button></div>`;
       }).join('')+`</div>`;
     }
     const chips=[sr?sr.series+' series':'',rs?'Descanso '+rs.rest.toLowerCase():''].filter(Boolean);

@@ -178,3 +178,6 @@ details.ses .ex strong{display:block}
 .titlein{font:800 26px var(--display)!important}
 .blk{margin:18px 2px 8px}.blk b{display:block;font:800 18px var(--display)}.blk small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+.dot{flex:none;width:6px;align-self:stretch;min-height:34px;border-radius:3px;background:var(--k)}
+.rn em{font:600 15px/1.2 var(--body);padding-left:10px;border-left:4px solid var(--k)}
