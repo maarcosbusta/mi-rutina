@@ -547,7 +547,7 @@ document.addEventListener('click',e=>{
 boot();
 
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList&&(e.target.classList.contains('cm-in')||e.target.id==='chat-in')){e.preventDefault();const b=e.target.parentElement.querySelector('[data-act=cmsend],[data-act=chatsend]');if(b)b.click()}});
-setInterval(async()=>{if(!me||!sb||document.hidden||S.exm||S.state==='login')return;try{await loadMsgs();const c=isCoach()?selClient:(S.tab==='chat'?me.id:null);if(c)await markRead(c);soft()}catch(e){}},15000);
+setInterval(async()=>{if(!me||!sb||document.hidden||S.exm||S.state==='login')return;try{await loadMsgs();if(isCoach()){const [c,r]=await Promise.all([sb.from('profiles').select('id,email,name,role').eq('role','client').order('email'),sb.from('routines').select('client_id')]);if(!c.error&&!r.error){clients=c.data||[];assigned=new Set((r.data||[]).map(x=>x.client_id))}}const c=isCoach()?selClient:(S.tab==='chat'?me.id:null);if(c)await markRead(c);soft()}catch(e){}},15000);
 document.addEventListener('toggle',e=>{const d=e.target;if(d.matches&&d.matches('details.ses')){const id=d.dataset.sid;if(d.open)S.open.add(id);else S.open.delete(id)}},true);
 
 addEventListener('offline',()=>{S.off=true;render()});addEventListener('online',()=>{S.off=false;render()});
