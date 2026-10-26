@@ -32,7 +32,7 @@ async function enter(){
   if(!user){S.state='login';render();return}
   const {data,error}=await sb.from('profiles').select('*').eq('id',user.id).single();
   if(error||!data){S.state='login';S.err='No se pudo cargar tu perfil. Avisa a tu entrenador.';render();return}
-  me=data;draft=loadJ('rutina-draft-'+me.id,{});S.err='';selClient=null;edit=null;finish=null;S.w=0;S.d=0;S.tab=isCoach()?'clientes':'rutina';
+  me=data;draft=loadJ('rutina-draft-'+me.id,{});S.err='';S.prevOn=false;S.prev=null;selClient=null;edit=null;finish=null;S.w=0;S.d=0;S.tab=isCoach()?'clientes':'rutina';
   if(isCoach()){S.state='coach';render();await loadCoach()}else{S.state='client';render();await loadClient()}
 }
 async function loadClient(){
@@ -157,7 +157,12 @@ function clientView(){
 }
 
 /* ---------- entrenador ---------- */
+function previewView(){
+  const c=clients.find(x=>x.id===selClient)||{};
+  return `<div class="prev"><div class="pvbar"><span>Vista previa · <b>${esc(label(c))}</b><small>Así lo ve el cliente. No se guarda nada.</small></span><button class="btn sec" data-act="endpreview">Volver</button></div>`+head(`<h1>${esc(routine.title)}</h1>`,esc(c.name||''))+clientRoutine()+`</div>`;
+}
 function coachView(){
+  if(S.prevOn&&routine)return previewView();
   if(edit)return editorView();
   const tabs=`<div class="seg"><button data-tab="clientes" aria-pressed="${S.tab!=='plantilla'}">Clientes</button><button data-tab="plantilla" aria-pressed="${S.tab==='plantilla'}">Plantilla</button></div>`;
   let body='';
@@ -166,7 +171,7 @@ function coachView(){
     body=`<main class="panel"><h2>Plantilla base</h2><p class="hint">Es la rutina que se copia a un cliente nuevo. Cambiarla no modifica las rutinas ya asignadas.</p>${tpl?`<button class="btn big" data-act="edittpl">Editar plantilla</button>`:'<div class="empty">Aún no hay plantilla base.</div><button class="btn big" data-act="newtpl">Crear plantilla vacía</button>'}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}</main>`;
   }else if(sel){
     const has=assigned.has(sel.id);
-    body=`<button class="back" data-act="backc">← Clientes</button><main class="panel"><h2>${esc(label(sel))}</h2><p class="hint" style="margin:0">${esc(sel.email)}</p><div class="ed2" style="display:flex;gap:8px"><input id="cname" value="${esc(sel.name||'')}" placeholder="Nombre del cliente" aria-label="Nombre del cliente"><button class="btn sec" data-act="savename">Guardar</button></div><label class="btn sec" for="xlsc" style="display:block;text-align:center;margin-top:10px">Cargar Excel (.xlsm) para este cliente</label><input type="file" id="xlsc" accept=".xlsm,.xlsx" hidden>${has?`<button class="btn big" data-act="editr">Editar su rutina</button>`:`<div class="empty">Este cliente aún no tiene rutina.</div><button class="btn big" data-act="assign" ${tpl?'':'disabled'}>Asignar plantilla base</button>${tpl?'':'<p class="hint">Crea primero la plantilla base.</p>'}`}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<h2 style="margin-top:14px">Sesiones registradas</h2>${cSessions.length?cSessions.map(sessionHTML).join(''):'<div class="empty">Todavía no ha registrado sesiones.</div>'}</main>`;
+    body=`<button class="back" data-act="backc">← Clientes</button><main class="panel"><h2>${esc(label(sel))}</h2><p class="hint" style="margin:0">${esc(sel.email)}</p><div class="ed2" style="display:flex;gap:8px"><input id="cname" value="${esc(sel.name||'')}" placeholder="Nombre del cliente" aria-label="Nombre del cliente"><button class="btn sec" data-act="savename">Guardar</button></div>${has?`<button class="btn big" data-act="preview" style="margin-top:10px">Ver como lo ve el cliente</button>`:''}<label class="btn sec" for="xlsc" style="display:block;text-align:center;margin-top:10px">Cargar Excel (.xlsm) para este cliente</label><input type="file" id="xlsc" accept=".xlsm,.xlsx" hidden>${has?`<button class="btn big" data-act="editr">Editar su rutina</button>`:`<div class="empty">Este cliente aún no tiene rutina.</div><button class="btn big" data-act="assign" ${tpl?'':'disabled'}>Asignar plantilla base</button>${tpl?'':'<p class="hint">Crea primero la plantilla base.</p>'}`}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<h2 style="margin-top:14px">Sesiones registradas</h2>${cSessions.length?cSessions.map(sessionHTML).join(''):'<div class="empty">Todavía no ha registrado sesiones.</div>'}</main>`;
   }else{
     body=`<main class="panel"><h2>Tus clientes</h2>${clients.length?clients.map(c=>`<button class="li" data-act="pick" data-id="${esc(c.id)}"><span><b>${esc(label(c))}</b><small>${assigned.has(c.id)?'Rutina asignada':'Sin rutina'}</small></span><span class="tag ${assigned.has(c.id)?'ok':''}">${assigned.has(c.id)?'Activo':'Pendiente'}</span></button>`).join(''):'<div class="empty">Aún no hay clientes. Invítalos desde Supabase: Authentication → Users → Invite user. Aparecerán aquí cuando acepten.</div>'}<button class="btn sec" data-act="reload">Actualizar lista</button></main>`;
   }
@@ -206,7 +211,7 @@ function render(){
 const werr=e=>e&&e.message?('No se pudo guardar: '+e.message):'No se pudo guardar. Prueba de nuevo.';
 function saveDraft(){saveJ('rutina-draft-'+me.id,draft)}
 async function act(a,t){
-  if(a==='logout'){await sb.auth.signOut();me=null;routine=null;sessions=[];selClient=null;edit=null;finish=null;S.state='login';S.err='';render();return}
+  if(a==='logout'){S.prevOn=false;S.prev=null;await sb.auth.signOut();me=null;routine=null;sessions=[];selClient=null;edit=null;finish=null;S.state='login';S.err='';render();return}
   if(a==='chpw'){S.chpw=true;S.err='';S.state='setpw';render();return}
   if(a==='cancelpw'){S.chpw=false;S.err='';await enter();return}
   if(a==='forgot'){S.forgot=true;S.err='';S.info='';render();return}
@@ -225,6 +230,12 @@ async function act(a,t){
     delete draft[dkey()];saveDraft();finish=null;S.tab='historial';await loadClient();render();return;
   }
   /* entrenador */
+  if(a==='preview'){
+    const {data,error}=await sb.from('routines').select('title,data').eq('client_id',selClient).maybeSingle();
+    if(error||!data){S.err=error?werr(error):'Este cliente aún no tiene rutina.';render();return}
+    S.prev={routine,sessions,draft};routine={title:data.title,weeks:data.data.weeks};sessions=[];draft={};S.w=0;S.d=0;S.err='';S.prevOn=true;render();scrollTo(0,0);return;
+  }
+  if(a==='endpreview'){const p=S.prev;if(p){routine=p.routine;sessions=p.sessions;draft=p.draft}S.prev=null;S.prevOn=false;S.w=0;S.d=0;render();return}
   if(a==='reload'){await loadCoach();return}
   if(a==='pick'){selClient=t.dataset.id;S.err='';cSessions=[];render();loadClientSessions(selClient);return}
   if(a==='backc'){selClient=null;S.err='';render();return}
