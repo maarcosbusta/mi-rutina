@@ -144,10 +144,15 @@ function coachView(){
   }
   return topbar()+head('<h1>Panel del entrenador</h1>','Clientes y rutinas')+tabs+body;
 }
+function importCard(){
+  const i=edit.imp||{};
+  return `<div class="card ed"><b>Cargar desde Excel</b><p class="hint" style="margin:6px 0 10px">Sube tu planificador (.xlsm). Leo la hoja <b>Plan_SS1</b> y coloco aquí la rutina entera, con sus vídeos. No se guarda hasta que pulses Guardar.</p><label class="btn sec" for="xlsf" style="display:block;text-align:center;${i.busy?'opacity:.6;pointer-events:none':''}">${i.busy?'Leyendo Excel…':'Cargar Excel (.xlsm)'}</label><input type="file" id="xlsf" accept=".xlsm,.xlsx" hidden>${i.ok?`<p class="hint" style="margin:10px 0 0" role="status">${esc(i.text)}</p>${i.noVideo&&i.noVideo.length?`<p class="hint" style="margin:6px 0 0">Sin vídeo: ${esc(i.noVideo.join(', '))}.</p>`:''}`:''}${i.err?`<div class="err" role="alert" style="margin-top:10px">${esc(i.err)}</div>`:''}</div>`;
+}
 function editorView(){
   const m=edit.model;normNav(m);const day=m.weeks[S.w].days[S.d];
   const f=(it,k,l,full)=>`<div class="${full?'full':''}"><label>${l}<input data-id="${it.id}" data-f="${k}" value="${esc(it[k])}" ${k==='name'?'list="lib"':''} ${k==='video'?'inputmode="url" placeholder="https://youtube.com/..."':''}></label></div>`;
   return head(`<input class="titlein" id="ttl" value="${esc(m.title)}" aria-label="Título" style="width:100%;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:8px 10px">`,esc(edit.label))+nav(m,true)+`<main><div class="card ed" style="margin-top:14px"><div class="grid"><div><label>Nombre de la semana<input data-wf="name" value="${esc(m.weeks[S.w].name)}"></label></div><div><label>Nombre del día<input data-df="name" value="${esc(day.name)}"></label></div></div><div class="tools"><button class="btn warn" data-act="delday">Quitar este día</button><button class="btn warn" data-act="delwk">Quitar esta semana</button><button class="btn sec" data-act="dupwk">Copiar semana</button></div></div><div style="height:12px"></div>`
+   +(edit.kind==='tpl'?importCard():'')
    +day.items.map((it,i)=>`<article class="card ed"><div class="grid">${f(it,'name','Ejercicio',1)}${f(it,'cat','Categoría',1)}${f(it,'series','Series')}${f(it,'reps','Repeticiones')}${f(it,'kg','Carga')}${f(it,'rest','Descanso')}${f(it,'video','Enlace del vídeo',1)}</div><div class="tools"><button class="btn sec" data-act="up" data-i="${i}">Subir</button><button class="btn sec" data-act="down" data-i="${i}">Bajar</button><button class="btn warn" data-act="del" data-i="${i}">Quitar</button></div></article>`).join('')
    +`<button class="btn sec" data-act="addex" style="width:100%;padding:14px">+ Añadir ejercicio</button></main><div class="coach"><span>${esc(edit.label)}</span><button class="btn sec" data-act="canceled">Cancelar</button><button class="btn" data-act="saveed" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar'}</button>${S.err?`<div class="msg" role="alert">${esc(S.err)}</div>`:''}</div>`;
 }
@@ -226,6 +231,55 @@ async function act(a,t){
     render();
   }
 }
+/* ---------- importar Excel (hoja Plan_SS1) ---------- */
+async function parsePlan(buf){
+  const sheets=await readXlsx(buf);
+  if(!sheets['Plan_SS1'])throw new Error('No encuentro la hoja "Plan_SS1" en este Excel.');
+  const vids={};
+  if(sheets['BASE_EJERCICIOSVIDEOS']){
+    const b=await sheets['BASE_EJERCICIOSVIDEOS']();
+    for(const r in b.rows){const x=b.rows[r];if(+r>0&&x[2]&&typeof x[5]==='string'&&/^https?:/.test(x[5]))vids[String(x[2]).trim().toLowerCase()]=x[5].trim()}
+  }
+  const sh=await sheets['Plan_SS1']();
+  const raw=(r,c)=>{
+    let v=(sh.rows[r]||{})[c];
+    if(v===undefined){const m=sh.merges.find(m=>r>=m.r1&&r<=m.r2&&c>=m.c1&&c<=m.c2);if(m)v=(sh.rows[m.r1]||{})[m.c1]}
+    return v===undefined?'':v;
+  };
+  const txt=(r,c)=>{const v=raw(r,c);return typeof v==='number'?String(Math.round(v*100)/100):String(v).trim()};
+  const starts=[];
+  for(let r=0;r<=sh.maxR;r++)if(/^semana\s*\d+/i.test(txt(r,1)))starts.push(r);
+  const weeks=[],noVideo=new Set();let total=0;
+  starts.forEach((st,wi)=>{
+    const end=wi+1<starts.length?starts[wi+1]:sh.maxR+1;
+    const wk={name:'Semana '+(txt(st,1).match(/\d+/)||[wi+1])[0],days:[]};
+    [1,11,21].forEach((dc,di)=>{
+      const nm=txt(st+1,dc);
+      const day={name:/^d[ií]a/i.test(nm)?nm:'Día '+(di+1),items:[]};
+      for(let r=st+2;r<end;r++){
+        const name=txt(r,dc+2);
+        if(!name||name==='Ejercicio'||/bloque/i.test(txt(r,dc)))continue;
+        const video=vids[name.toLowerCase()]||(lib.find(x=>x.name===name)||{}).video||'';
+        if(!video)noVideo.add(name);
+        day.items.push({id:uid(),cat:txt(r,dc+1),name,series:txt(r,dc+4),reps:txt(r,dc+5),kg:txt(r,dc+6),rest:txt(r,dc+8),video});
+        total++;
+      }
+      if(day.items.length)wk.days.push(day);
+    });
+    if(wk.days.length)weeks.push(wk);
+  });
+  if(!weeks.length)throw new Error('La hoja Plan_SS1 no tiene ejercicios.');
+  return{weeks,total,noVideo:[...noVideo]};
+}
+async function importXlsx(file){
+  edit.imp={busy:true};render();
+  try{
+    const r=await parsePlan(await file.arrayBuffer());
+    edit.model.weeks=r.weeks;S.w=0;S.d=0;
+    edit.imp={ok:true,text:`Cargada${r.weeks.length>1?'s':''} ${r.weeks.length} semana${r.weeks.length>1?'s':''} y ${r.total} ejercicios desde "${file.name}". Revisa y pulsa Guardar para aplicarlo (o Cancelar para descartarlo).`,noVideo:r.noVideo};
+  }catch(e){edit.imp={err:(e&&e.message)||'No se pudo leer el Excel.'}}
+  render();
+}
 function startEdit(kind,data,label){edit={kind,label,model:JSON.parse(JSON.stringify({title:data.title,weeks:data.weeks}))};S.w=0;S.d=0;S.err='';render()}
 
 /* ---------- eventos ---------- */
@@ -270,6 +324,7 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',e=>{
   const t=e.target;
+  if(t.id==='xlsf'&&edit&&t.files&&t.files[0]){importXlsx(t.files[0]);return}
   if(edit&&t.dataset.f==='name'){
     const l=lib.find(x=>x.name===t.value);
     if(l){const it=edit.model.weeks[S.w].days[S.d].items.find(x=>x.id===t.dataset.id);it.cat=l.cat||it.cat;it.video=l.video||'';setTimeout(render,0)}
