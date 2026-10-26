@@ -60,7 +60,9 @@ async function loadClientSessions(id){
 
 /* ---------- piezas comunes ---------- */
 const head=(t,sub)=>`<header>${t}<div class="sub">${sub||''}</div></header>`;
-const topbar=()=>me?`<div class="topbar"><button class="linkb" data-act="chpw">Cambiar contraseña</button> · <button class="linkb" data-act="logout">Salir (${esc(me.email)})</button></div>`:'';
+const MARK='<span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>';
+const initial=c=>String((c&&(c.name||c.email))||'?').trim()[0].toUpperCase();
+const topbar=()=>me?`<div class="appbar"><div class="brand">${MARK}Mi rutina</div><div class="menuw"><button class="av" data-act="menu" aria-label="Cuenta" aria-expanded="${!!S.menu}" aria-haspopup="menu">${esc(initial(me))}</button>${S.menu?`<div class="pop" role="menu"><small>${esc(me.email)}</small><button role="menuitem" data-act="chpw">Cambiar contraseña</button><button role="menuitem" data-act="logout">Salir</button></div>`:''}</div></div>`:'';
 function facts(it){
   const f=[];
   if(it.cat==='Cardio'){if(it.series)f.push(['Duración',it.series+' min','big']);if(it.reps)f.push(['Intensidad',it.reps]);}
@@ -72,6 +74,10 @@ const bname=b=>String(b||'').replace(/^.*bloque\s*:\s*/i,'').trim();
 const factHTML=f=>f.map(([l,v,c])=>`<div class="fact ${c||''}"><small>${l}</small>${esc(v)}</div>`).join('');
 const vidHTML=it=>it.video?`<a class="vid" href="${esc(it.video)}" target="_blank" rel="noopener">${PLAY}Ver vídeo</a>`:'<span class="novid">Sin vídeo</span>';
 function nav(m,withAdd){
+  if(!withAdd){
+    const ds=m.weeks[S.w].days;
+    return `<nav>${m.weeks.length>1?`<div class="dseg wk" style="--n:${m.weeks.length}">${m.weeks.map((w,i)=>`<button data-w="${i}" aria-pressed="${i===S.w}">${esc(w.name.replace(/^Semana/i,'Semana'))}</button>`).join('')}</div>`:''}<div class="dseg" style="--n:${ds.length}">${ds.map((d,i)=>`<button data-d="${i}" aria-pressed="${i===S.d}">${esc(d.name)}</button>`).join('')}</div></nav>`;
+  }
   return `<nav><div class="row">${m.weeks.map((w,i)=>`<button class="chip" data-w="${i}" aria-pressed="${i===S.w}">${esc(w.name.replace(/^Semana/i,'Sem'))}</button>`).join('')}${withAdd?'<button class="chip add" data-act="addwk">+ Semana</button>':''}</div>
   <div class="row">${m.weeks[S.w].days.map((d,i)=>`<button class="chip day" data-d="${i}" aria-pressed="${i===S.d}">${esc(d.name)}</button>`).join('')}${withAdd?'<button class="chip add" data-act="addday">+ Día</button>':''}</div></nav>`;
 }
@@ -104,44 +110,49 @@ function findEx(id){for(const w of routine.weeks)for(const d of w.days)for(const
 function clientRoutine(){
   normNav(routine);
   const day=routine.weeks[S.w].days[S.d];
-  let total=0,done=0;
-  const exHTML=(it,tag,solo)=>{
-    const c=isCardio(it);const sets=dget(it);total+=sets.length;done+=sets.filter(x=>x.done).length;
+  const stat=its=>{let t=0,d=0;its.forEach(it=>{const st=dget(it);t+=st.length;d+=st.filter(x=>x.done).length});return[t,d]};
+  const [total,done]=stat(day.items);
+  const exHTML=(it)=>{
+    const c=isCardio(it);const sets=dget(it);
     const last=lastFor(it.id);
     const rows=sets.map((s,i)=>c?`<div class="srow c"><i>${i+1}</i><span>${esc(it.series||'')} min</span><button class="set" data-ex="${it.id}" data-i="${i}" data-act="tog" aria-pressed="${s.done}" aria-label="Hecho">${s.done?'✓':'•'}</button></div>`
-      :`<div class="srow"><i>${i+1}</i><input inputmode="decimal" data-ex="${it.id}" data-i="${i}" data-fld="kg" value="${esc(s.kg)}" placeholder="${/^\d/.test(it.kg||'')?esc(it.kg):'kg'}" aria-label="Kilos serie ${i+1}"><input inputmode="numeric" data-ex="${it.id}" data-i="${i}" data-fld="reps" value="${esc(s.reps)}" placeholder="${esc(it.reps||'reps')}" aria-label="Repeticiones serie ${i+1}"><button class="set" data-ex="${it.id}" data-i="${i}" data-act="tog" aria-pressed="${s.done}" aria-label="Serie ${i+1} hecha">${s.done?'✓':'•'}</button></div>`).join('');
-    const plan=c?[it.series&&it.series+' min',it.reps].filter(Boolean).join(' · '):[solo&&it.series&&it.series+' series',it.reps,it.kg&&('Carga: '+n$(it.kg)),solo&&it.rest&&'descanso '+it.rest].filter(Boolean).join(' · ');
-    return `<div class="bex"><div class="name">${tag?`<span class="tg">${tag}</span>`:''}${esc(it.name)}</div>${plan?`<div class="plan">${esc(plan)}</div>`:''}${last?`<p class="hint">Última vez: ${esc(last)}</p>`:''}${rows}<div style="margin-top:6px">${vidHTML(it)}</div></div>`;
+      :`<div class="srow"><i>${i+1}</i><input inputmode="decimal" data-ex="${it.id}" data-i="${i}" data-fld="kg" value="${esc(s.kg)}" placeholder="${/^\d/.test(it.kg||'')?esc(it.kg):'kg'}" aria-label="Kilos serie ${i+1}"><input inputmode="numeric" data-ex="${it.id}" data-i="${i}" data-fld="reps" value="${esc(s.reps)}" placeholder="reps" aria-label="Repeticiones serie ${i+1}"><button class="set" data-ex="${it.id}" data-i="${i}" data-act="tog" aria-pressed="${s.done}" aria-label="Serie ${i+1} hecha">${s.done?'✓':'•'}</button></div>`).join('');
+    const plan=c?[it.series&&it.series+' min',it.reps].filter(Boolean).join(' · '):[it.series&&it.series+' series',it.reps,it.kg&&('Carga: '+n$(it.kg)),it.rest&&'descanso '+it.rest].filter(Boolean).join(' · ');
+    return `<div class="bex"><div class="name">${esc(it.name)}</div>${plan?`<div class="plan">${esc(plan)}</div>`:''}${last?`<p class="hint">Última vez: ${esc(last)}</p>`:''}${rows}<div style="margin-top:6px">${vidHTML(it)}</div></div>`;
   };
   const groups=[];
   day.items.forEach(it=>{const g=groups[groups.length-1];if(it.block&&g&&g.block===it.block)g.items.push(it);else groups.push({block:it.block||'',items:[it]})});
-  const miniVid=it=>it.video?`<a class="vid sm" href="${esc(it.video)}" target="_blank" rel="noopener" aria-label="Ver vídeo de ${esc(it.name)}">${PLAY}Vídeo</a>`:'';
+  const miniVid=it=>it.video?`<a class="play" href="${esc(it.video)}" target="_blank" rel="noopener" aria-label="Ver vídeo de ${esc(it.name)}">${PLAY}</a>`:'';
   const planOf=it=>[it.reps,it.kg&&('Carga: '+n$(it.kg))].filter(Boolean).join(' · ');
   const blockHTML=(g,gi)=>{
     const sr=g.items.find(x=>x.series),rs=g.items.find(x=>x.rest);
     const L=k=>String.fromCharCode(65+gi)+(k+1);
-    g.items.forEach(it=>{const st=dget(it);total+=st.length;done+=st.filter(x=>x.done).length});
-    const all=g.items.every(it=>dget(it).every(x=>x.done));
-    const legend=g.items.map((it,k)=>`<div class="lg"><span class="tg">${L(k)}</span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small></div>${miniVid(it)}</div>`).join('');
+    const [bt,bd]=stat(g.items);
+    const legend=g.items.map((it,k)=>`<li class="ex"><span class="tg">${L(k)}</span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small></div>${miniVid(it)}</li>`).join('');
     const rounds=Math.max(0,...g.items.map(it=>dget(it).length));
     let rh='';
     for(let r=0;r<rounds;r++){
-      rh+=`<div class="round"><div class="rh">Serie ${r+1}</div>`+g.items.map((it,k)=>{
+      const have=g.items.filter(it=>dget(it)[r]);
+      const rdone=have.every(it=>dget(it)[r].done);
+      rh+=`<div class="round"><div class="rh"><span>Serie ${r+1}</span><button class="rall" data-act="round" data-ids="${have.map(it=>it.id).join(',')}" data-i="${r}" aria-pressed="${rdone}">${rdone?'Serie hecha ✓':'Marcar toda la serie'}</button></div>`+g.items.map((it,k)=>{
         const s=dget(it)[r];if(!s)return '';
         const ctl=isCardio(it)?`<span class="rc">${esc(it.series||'')} min</span>`
           :`<input inputmode="decimal" data-ex="${it.id}" data-i="${r}" data-fld="kg" value="${esc(s.kg)}" placeholder="${/^\d/.test(it.kg||'')?esc(it.kg):'kg'}" aria-label="Kilos ${esc(it.name)} serie ${r+1}"><input inputmode="numeric" data-ex="${it.id}" data-i="${r}" data-fld="reps" value="${esc(s.reps)}" placeholder="reps" aria-label="Repeticiones ${esc(it.name)} serie ${r+1}">`;
-        return `<div class="rrow"><span class="rn"><b>${L(k)}</b>${esc(it.name)}</span>${ctl}<button class="set" data-ex="${it.id}" data-i="${r}" data-act="tog" aria-pressed="${s.done}" aria-label="${esc(it.name)} serie ${r+1} hecha">${s.done?'✓':'•'}</button></div>`;
+        return `<div class="rrow"><span class="rn"><span class="tg">${L(k)}</span><em>${esc(it.name)}</em></span>${ctl}<button class="set" data-ex="${it.id}" data-i="${r}" data-act="tog" aria-pressed="${s.done}" aria-label="${esc(it.name)} serie ${r+1} hecha">${s.done?'✓':'•'}</button></div>`;
       }).join('')+`</div>`;
     }
-    return `<article class="card bcard ${all?'done':''}"><div class="bh"><b>${esc(bname(g.block))}</b><small>${g.items.length>1?'Superserie · ':''}${sr?esc(sr.series)+' series':''}${rs?' · descanso '+esc(rs.rest):''}</small></div><div class="leg-wrap">${legend}</div>${rh}</article>`;
+    const chips=[sr?sr.series+' series':'',rs?'Descanso '+rs.rest.toLowerCase():''].filter(Boolean);
+    return `<section class="card bcard bk${gi%4} ${bd===bt&&bt?'done':''}" id="blk${gi}"><div class="bh"><span class="bn">${gi+1}</span><div class="bt"><h2>${esc(bname(g.block))}</h2><div class="chips">${chips.map(c=>`<span>${esc(c)}</span>`).join('')}</div></div><span class="bp">${bd}/${bt}</span></div><ul class="legend">${legend}</ul>${rh}</section>`;
   };
+  const blocked=groups.filter(g=>g.block);
+  const map=blocked.length>1?`<div class="map" role="group" aria-label="Bloques de la sesión">${groups.map((g,gi)=>{if(!g.block)return '';const [t,d]=stat(g.items);return `<button class="bk${gi%4} ${d===t&&t?'full':''}" data-go="blk${gi}" style="--p:${t?d/t*100:0}%" aria-label="Ir al bloque ${esc(bname(g.block))}, ${d} de ${t} series"><span>${esc(bname(g.block))}</span></button>`}).join('')}</div>`:'';
   const cards=groups.map((g,gi)=>{
     if(g.block)return blockHTML(g,gi);
-    return `<article class="card bcard ${g.items.every(it=>dget(it).every(x=>x.done))?'done':''}">${g.items.map(it=>exHTML(it,'',true)).join('')}</article>`;
+    return `<article class="card bcard">${g.items.map(exHTML).join('')}</article>`;
   }).join('')||'<div class="empty">Este día aún no tiene ejercicios.</div>';
   const fin=finish?`<div class="sheet"><h2>Terminar sesión</h2><div><label>Cómo te has sentido</label><div class="feel" style="margin-top:8px">${[1,2,3,4,5].map(n=>`<button data-act="feel" data-n="${n}" aria-pressed="${finish.feeling===n}">${n}</button>`).join('')}</div><div class="fl"><span>${FEEL[0]}</span><span>${FEEL[4]}</span></div></div><label>Notas para tu entrenador<textarea id="fnote" placeholder="Dolor, sensaciones, cambios que hiciste...">${esc(finish.notes)}</textarea></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" data-act="savesession" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar sesión'}</button><button class="back" data-act="cancelfin">Seguir entrenando</button></div>`
-    :`<button class="btn big" style="margin-top:6px" data-act="fin" ${done?'':'disabled'}>Terminar sesión</button>`;
-  return nav(routine)+`<main><div class="prog"><div class="bar"><i style="width:${total?done/total*100:0}%"></i></div><b>${done}/${total} series</b></div>${cards}${fin}</main>`;
+    :`<div class="dock"><div class="dk"><b>${done}</b><small>de ${total} series</small></div><button class="btn" data-act="fin" ${done?'':'disabled'}>Terminar sesión</button></div>`;
+  return nav(routine)+`<main>${map}${cards}${fin}</main>`;
 }
 function sessionHTML(s){
   const its=s.items||[];let t=0,d=0;its.forEach(i=>(i.sets||[]).forEach(x=>{t++;if(x.done)d++}));
@@ -153,7 +164,7 @@ function clientView(){
   if(!routine)body=`<div class="empty" style="margin-top:20px">Tu entrenador aún no te ha asignado una rutina. Vuelve en un rato.</div>`;
   else if(S.tab==='historial')body=`<main class="panel">${sessions.length?sessions.map(sessionHTML).join(''):'<div class="empty">Todavía no has guardado ninguna sesión.</div>'}</main>`;
   else body=clientRoutine();
-  return topbar()+head(`<h1>${esc(routine?routine.title:'Mi rutina')}</h1>`,esc(me.name||''))+tabs+body;
+  return topbar()+head(`<h1>${me.name?'Hola, '+esc(String(me.name).split(' ')[0]):'Tu rutina'}</h1>`,routine&&routine.title!=='Mi rutina'?esc(routine.title):'')+tabs+body;
 }
 
 /* ---------- entrenador ---------- */
@@ -173,7 +184,7 @@ function coachView(){
     const has=assigned.has(sel.id);
     body=`<button class="back" data-act="backc">← Clientes</button><main class="panel"><h2>${esc(label(sel))}</h2><p class="hint" style="margin:0">${esc(sel.email)}</p><div class="ed2" style="display:flex;gap:8px"><input id="cname" value="${esc(sel.name||'')}" placeholder="Nombre del cliente" aria-label="Nombre del cliente"><button class="btn sec" data-act="savename">Guardar</button></div>${has?`<button class="btn big" data-act="preview" style="margin-top:10px">Ver como lo ve el cliente</button>`:''}<label class="btn sec" for="xlsc" style="display:block;text-align:center;margin-top:10px">Cargar Excel (.xlsm) para este cliente</label><input type="file" id="xlsc" accept=".xlsm,.xlsx" hidden>${has?`<button class="btn big" data-act="editr">Editar su rutina</button>`:`<div class="empty">Este cliente aún no tiene rutina.</div><button class="btn big" data-act="assign" ${tpl?'':'disabled'}>Asignar plantilla base</button>${tpl?'':'<p class="hint">Crea primero la plantilla base.</p>'}`}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<h2 style="margin-top:14px">Sesiones registradas</h2>${cSessions.length?cSessions.map(sessionHTML).join(''):'<div class="empty">Todavía no ha registrado sesiones.</div>'}</main>`;
   }else{
-    body=`<main class="panel"><h2>Tus clientes</h2>${clients.length?clients.map(c=>`<button class="li" data-act="pick" data-id="${esc(c.id)}"><span><b>${esc(label(c))}</b><small>${assigned.has(c.id)?'Rutina asignada':'Sin rutina'}</small></span><span class="tag ${assigned.has(c.id)?'ok':''}">${assigned.has(c.id)?'Activo':'Pendiente'}</span></button>`).join(''):'<div class="empty">Aún no hay clientes. Invítalos desde Supabase: Authentication → Users → Invite user. Aparecerán aquí cuando acepten.</div>'}<button class="btn sec" data-act="reload">Actualizar lista</button></main>`;
+    body=`<main class="panel"><h2>Tus clientes</h2>${clients.length?clients.map(c=>`<button class="li" data-act="pick" data-id="${esc(c.id)}"><span class="who"><span class="av sm">${esc(initial(c))}</span><span><b>${esc(label(c))}</b><small>${assigned.has(c.id)?'Rutina asignada':'Sin rutina'}</small></span></span><span class="tag ${assigned.has(c.id)?'ok':''}">${assigned.has(c.id)?'Activo':'Pendiente'}</span></button>`).join(''):'<div class="empty">Aún no hay clientes. Invítalos desde Supabase: Authentication → Users → Invite user. Aparecerán aquí cuando acepten.</div>'}<button class="btn sec" data-act="reload">Actualizar lista</button></main>`;
   }
   return topbar()+head('<h1>Panel del entrenador</h1>','Clientes y rutinas')+tabs+body;
 }
@@ -211,12 +222,14 @@ function render(){
 const werr=e=>e&&e.message?('No se pudo guardar: '+e.message):'No se pudo guardar. Prueba de nuevo.';
 function saveDraft(){saveJ('rutina-draft-'+me.id,draft)}
 async function act(a,t){
-  if(a==='logout'){S.prevOn=false;S.prev=null;await sb.auth.signOut();me=null;routine=null;sessions=[];selClient=null;edit=null;finish=null;S.state='login';S.err='';render();return}
-  if(a==='chpw'){S.chpw=true;S.err='';S.state='setpw';render();return}
+  if(a==='logout'){S.menu=false;S.prevOn=false;S.prev=null;await sb.auth.signOut();me=null;routine=null;sessions=[];selClient=null;edit=null;finish=null;S.state='login';S.err='';render();return}
+  if(a==='menu'){S.menu=!S.menu;render();return}
+  if(a==='chpw'){S.menu=false;S.chpw=true;S.err='';S.state='setpw';render();return}
   if(a==='cancelpw'){S.chpw=false;S.err='';await enter();return}
   if(a==='forgot'){S.forgot=true;S.err='';S.info='';render();return}
   if(a==='backlogin'){S.forgot=false;S.err='';S.info='';render();return}
   if(a==='tog'){const it=findEx(t.dataset.ex);const s=dget(it)[+t.dataset.i];s.done=!s.done;saveDraft();render();return}
+  if(a==='round'){const ids=t.dataset.ids.split(','),i=+t.dataset.i;const its=ids.map(findEx);const all=its.every(it=>dget(it)[i].done);its.forEach(it=>{dget(it)[i].done=!all});saveDraft();render();return}
   if(a==='fin'){finish={feeling:0,notes:''};S.err='';render();return}
   if(a==='cancelfin'){finish=null;render();return}
   if(a==='feel'){finish.feeling=+t.dataset.n;render();return}
@@ -387,7 +400,9 @@ document.addEventListener('change',e=>{
   }
 });
 document.addEventListener('click',e=>{
+  if(S.menu&&!e.target.closest('.menuw')){S.menu=false;render()}
   const t=e.target.closest('button');if(!t)return;
+  if(t.dataset.go){const el=document.getElementById(t.dataset.go);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return}
   const y=scrollY;
   if(t.dataset.tab){S.tab=t.dataset.tab;selClient=null;S.err='';render();return}
   if(t.dataset.w!==undefined){S.w=+t.dataset.w;S.d=0;render();scrollTo(0,y);return}
