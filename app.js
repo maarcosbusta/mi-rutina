@@ -62,7 +62,7 @@ async function loadClientSessions(id){
 const head=(t,sub)=>`<header>${t}<div class="sub">${sub||''}</div></header>`;
 const MARK='<span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>';
 const initial=c=>String((c&&(c.name||c.email))||'?').trim()[0].toUpperCase();
-const topbar=()=>me?`<div class="appbar"><div class="brand">${MARK}Mi rutina</div><div class="menuw"><button class="av" data-act="menu" aria-label="Cuenta" aria-expanded="${!!S.menu}" aria-haspopup="menu">${esc(initial(me))}</button>${S.menu?`<div class="pop" role="menu"><small>${esc(me.email)}</small><button role="menuitem" data-act="chpw">Cambiar contraseña</button><button role="menuitem" data-act="logout">Salir</button></div>`:''}</div></div>`:'';
+const topbar=()=>me?`<div class="appbar"><div class="brand">${MARK}Mi rutina</div><div class="menuw"><button class="av" data-act="menu" aria-label="Cuenta" aria-expanded="${!!S.menu}" aria-haspopup="menu"${me.avatar_url?` style="background-image:url('${esc(me.avatar_url)}')"`:''}>${me.avatar_url?'':esc(initial(me))}</button><input type="file" id="avf" accept="image/*" hidden>${S.menu?`<div class="pop" role="menu"><small>${esc(me.email)}</small><button role="menuitem" data-act="photo">${me.avatar_url?'Cambiar foto':'Añadir foto de perfil'}</button>${me.avatar_url?'<button role="menuitem" data-act="rmphoto">Quitar foto</button>':''}<button role="menuitem" data-act="chpw">Cambiar contraseña</button><button role="menuitem" data-act="logout">Salir</button></div>`:''}</div></div>`:'';
 function facts(it){
   const f=[];
   if(it.cat==='Cardio'){if(it.series)f.push(['Duración',it.series+' min','big']);if(it.reps)f.push(['Intensidad',it.reps]);}
@@ -230,6 +230,8 @@ const werr=e=>e&&e.message?('No se pudo guardar: '+e.message):'No se pudo guarda
 function saveDraft(){saveJ('rutina-draft-'+me.id,draft)}
 async function act(a,t){
   if(a==='logout'){S.menu=false;S.prevOn=false;S.prev=null;await sb.auth.signOut();me=null;routine=null;sessions=[];selClient=null;edit=null;finish=null;S.state='login';S.err='';render();return}
+  if(a==='photo'){S.menu=false;render();document.getElementById('avf').click();return}
+  if(a==='rmphoto'){S.menu=false;await setAvatar(null);return}
   if(a==='menu'){S.menu=!S.menu;render();return}
   if(a==='chpw'){S.menu=false;S.chpw=true;S.err='';S.state='setpw';render();return}
   if(a==='cancelpw'){S.chpw=false;S.err='';await enter();return}
@@ -397,7 +399,14 @@ document.addEventListener('input',e=>{
   }
   if(t.dataset.fld&&routine){const it=findEx(t.dataset.ex);dget(it)[+t.dataset.i][t.dataset.fld]=t.value;saveDraft()}
 });
-document.addEventListener('change',e=>{
+async function setAvatar(url){
+  const {error}=await sb.rpc('set_avatar',{url});
+  if(error){alert('No se pudo guardar la foto: '+error.message);return}
+  me.avatar_url=url;render();
+}
+function resizeImg(file,n=192){return new Promise((ok,ko)=>{const im=new Image(),u=URL.createObjectURL(file);im.onload=()=>{const s=Math.min(im.width,im.height),c=document.createElement('canvas');c.width=c.height=n;c.getContext('2d').drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,n,n);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',.82))};im.onerror=()=>ko(new Error('Imagen no válida'));im.src=u})}
+document.addEventListener('change',async e=>{
+  if(e.target.id==='avf'){const f=e.target.files[0];if(!f)return;try{await setAvatar(await resizeImg(f))}catch(x){alert(x.message)}return}
   const t=e.target;
   if(t.id==='xlsf'&&edit&&t.files&&t.files[0]){importXlsx(t.files[0]);return}
   if(t.id==='xlsc'&&selClient&&t.files&&t.files[0]){importForClient(t.files[0]);return}

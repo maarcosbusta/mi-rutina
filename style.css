@@ -35,7 +35,7 @@ header{padding-top:14px}
 .mark i{width:9px;height:9px;border-radius:3px;display:block}
 .mark i:nth-child(1){background:#0B7F70}.mark i:nth-child(2){background:#2F5BD0}.mark i:nth-child(3){background:#D9951A}.mark i:nth-child(4){background:#C0392B}
 .menuw{position:relative}
-.av{width:40px;height:40px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);font:800 16px var(--display);cursor:pointer;display:grid;place-items:center}
+.av{width:40px;height:40px;border-radius:50%;border:0;background:var(--ink) center/cover;color:var(--bg);font:800 16px var(--display);cursor:pointer;display:grid;place-items:center}
 .av.sm{width:38px;height:38px;font-size:15px;flex:none;cursor:inherit}
 .pop{position:absolute;right:0;top:48px;z-index:20;min-width:230px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:6px;display:grid}
 .pop small{padding:8px 10px;color:var(--muted);font-size:13px;overflow-wrap:anywhere}
