@@ -25,6 +25,7 @@ async function boot(){
   sb=supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY);
   sb.auth.onAuthStateChange(ev=>{if(ev==='PASSWORD_RECOVERY'){S.state='setpw';render()}});
   let data;try{({data}=await sb.auth.getSession())}catch(e){S.state='offline';render();return}
+  if(FROM_LINK&&data.session){try{const p=await sb.from('profiles').select('name').eq('id',data.session.user.id).maybeSingle();S.linkName=p.data&&p.data.name}catch(e){}}
   if(FROM_LINK){S.state=data.session?'setpw':'login';render();return}
   if(data.session)await enter();else{S.state='login';render()}
 }
@@ -111,13 +112,13 @@ function normNav(m){
 /* ---------- acceso ---------- */
 function offlineView(){return `<div class="hero">${MARK}</div>`+head('<h1>Sin conexión</h1>','No consigo conectar con el servidor.')+`<main class="panel"><p class="hint" style="margin:0">Revisa tu wifi o tus datos móviles y vuelve a intentarlo. No se ha perdido nada de lo que habías anotado.</p><button class="btn big" data-act="retry">Reintentar</button></main>`}
 function welcomeHTML(){const n=me.name?String(me.name).split(' ')[0]:'';
-  return `<div class="mo" role="dialog" aria-modal="true"><div class="mc"><h2>¡Bienvenido${n?', '+esc(n):''}!</h2><small class="sub">Tu entrenador: ${esc(TRAINER)}</small><ol class="wl"><li><b>Elige tu día</b> y ve bloque a bloque.</li><li><b>Apunta kg y repeticiones</b> y marca ✓ cada serie. El ⏱ cuenta tu descanso.</li><li><b>Al acabar</b>, pulsa «Terminar sesión» y puntúa el esfuerzo del 1 al 5.</li><li><b>¿Dudas o molestias?</b> Escríbeme con 💬 en un ejercicio o en la pestaña Chat.</li></ol><button class="btn big" data-act="welcomeok">Empezar</button></div></div>`}
+  return `<div class="mo" role="dialog" aria-modal="true"><div class="mc"><h2>¡Bienvenido${n?', '+esc(n):''}!</h2><small class="sub">Tu entrenador: ${esc(TRAINER)}</small>${me.name?'':'<label class="wn">¿Cómo te llamas?<input id="wname" autocomplete="name" maxlength="80" placeholder="Nombre y apellidos"></label>'}<ol class="wl"><li><b>Elige tu día</b> y ve bloque a bloque.</li><li><b>Apunta kg y repeticiones</b> y marca ✓ cada serie. El ⏱ cuenta tu descanso.</li><li><b>Al acabar</b>, pulsa «Terminar sesión» y puntúa el esfuerzo del 1 al 5.</li><li><b>¿Dudas o molestias?</b> Escríbeme con 💬 en un ejercicio o en la pestaña Chat.</li></ol><button class="btn big" data-act="welcomeok">Empezar</button></div></div>`}
 function loginView(){
   if(S.forgot)return head('<h1>Mi rutina</h1>','')+`<form class="auth" id="fForgot"><p class="hint">Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.</p><label>Correo<input type="email" id="em" autocomplete="email" required></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}${S.info?`<div class="ok" role="status">${esc(S.info)}</div>`:''}<button class="btn big" ${S.busy?'disabled':''}>${S.busy?'Enviando…':'Enviar enlace'}</button><button type="button" class="linkb" data-act="backlogin">Volver</button></form>`;
   return `<div class="hero">${MARK}</div>`+head('<h1>Mi rutina</h1>','Entrenador: '+TRAINER)+`<p class="hint" style="margin:0 0 6px">Entra con tu cuenta</p><form class="auth" id="fLogin"><label>Correo<input type="email" id="em" autocomplete="email" required></label><label>Contraseña<input type="password" id="pw" autocomplete="current-password" required></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" ${S.busy?'disabled':''}>${S.busy?'Entrando…':'Entrar'}</button><button type="button" class="linkb" data-act="forgot">He olvidado mi contraseña</button><p class="hint">¿Aún no tienes cuenta? Tu entrenador te enviará una invitación por correo.</p></form>`;
 }
 function setpwView(){
-  return head(S.chpw?'<h1>Cambiar contraseña</h1>':'<h1>Crea tu contraseña</h1>',S.chpw?'':'Último paso para entrar')+`<form class="auth" id="fSetpw"><label>Contraseña nueva (mínimo 8 caracteres)<input type="password" id="pw" autocomplete="new-password" minlength="8" required></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" ${S.busy?'disabled':''}>${S.busy?'Guardando…':(S.chpw?'Guardar contraseña':'Guardar y entrar')}</button>${S.chpw?'<button type="button" class="linkb" data-act="cancelpw">Cancelar</button>':''}</form>`;
+  return head(S.chpw?'<h1>Cambiar contraseña</h1>':'<h1>Crea tu contraseña</h1>',S.chpw?'':'Último paso para entrar')+`<form class="auth" id="fSetpw">${!S.chpw&&!S.linkName?'<label>Tu nombre y apellidos<input id="nm" autocomplete="name" maxlength="80" required></label>':''}<label>Contraseña nueva (mínimo 8 caracteres)<input type="password" id="pw" autocomplete="new-password" minlength="8" required></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" ${S.busy?'disabled':''}>${S.busy?'Guardando…':(S.chpw?'Guardar contraseña':'Guardar y entrar')}</button>${S.chpw?'<button type="button" class="linkb" data-act="cancelpw">Cancelar</button>':''}</form>`;
 }
 const noconfigView=()=>head('<h1>Falta configurar</h1>','')+`<div class="hero"><p>Abre el archivo <b>config.js</b> y pega la URL y la clave de tu proyecto de Supabase. Los pasos están en GUIA.md.</p></div>`;
 
@@ -336,7 +337,7 @@ async function act(a,t){
     if(error){alert('No se pudo enviar: '+error.message);return}
     S.exm=null;S.toast='Enviado a tu entrenador ✓';await loadMsgs();render();setTimeout(()=>{S.toast='';render()},2500);return}
   if(a==='retry'){S.state='loading';render();if(sb)await enter();else boot();return}
-  if(a==='welcomeok'){S.welcome=false;try{localStorage.setItem('welcome-'+me.id,'1')}catch(e){}render();return}
+  if(a==='welcomeok'){const w=document.getElementById('wname'),nm=w&&w.value.trim();if(nm){const {error}=await sb.rpc('set_name',{n:nm});if(!error)me.name=nm}S.welcome=false;try{localStorage.setItem('welcome-'+me.id,'1')}catch(e){}render();return}
   if(a==='photo'){S.menu=false;render();document.getElementById('avf').click();return}
   if(a==='rmphoto'){S.menu=false;await setAvatar(null);return}
   if(a==='menu'){S.menu=!S.menu;render();return}
@@ -489,12 +490,13 @@ document.addEventListener('submit',async e=>{
     S.busy=false;S.info='Si el correo existe, recibirás un enlace en unos minutos.';render();return;
   }
   if(id==='fSetpw'){
-    const pw=val('pw');
+    const pw=val('pw'),nm=val('nm').trim();
     S.busy=true;render();
     const {error}=await sb.auth.updateUser({password:pw});
     S.busy=false;
     if(error){S.err=error.message;render();return}
-    S.chpw=false;history.replaceState(null,'',location.pathname);await enter();
+    if(nm)await sb.rpc('set_name',{n:nm});
+    S.chpw=false;S.linkName=null;history.replaceState(null,'',location.pathname);await enter();
   }
 });
 document.addEventListener('input',e=>{
