@@ -2,17 +2,17 @@
    Cada bloque de la sesión tiene su color (--k) y se repite en mapa, cabecera, etiquetas y casillas. */
 :root{
   --bg:#EDF0F2; --surface:#FFFFFF; --ink:#11171C; --muted:#5B6772; --line:#DCE1E5; --chip:#E3E8EB;
-  --accent:#11171C; --accent-ink:#FFFFFF; --bad:#C0392B; --done:#0B7F70; --done-soft:#DDF0EC; --kink:#FFFFFF;
+  --accent:#C8F031; --accent-ink:#11171C; --bad:#C0392B; --done:#0B7F70; --done-soft:#DDF0EC; --kink:#FFFFFF;
   --display:'Archivo','Arial Narrow',Arial,sans-serif; --body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
   --shadow:0 1px 2px #11171C14,0 6px 20px #11171C0F;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0E1318; --surface:#161D24; --ink:#ECF0F3; --muted:#92A0AB; --line:#27323B; --chip:#202A33;
-  --accent:#ECF0F3; --accent-ink:#0E1318; --bad:#FF7A6B; --done:#3CCDB6; --done-soft:#103832; --kink:#0E1318;
+  --accent:#C8F031; --accent-ink:#11171C; --bad:#FF7A6B; --done:#3CCDB6; --done-soft:#103832; --kink:#0E1318;
   --shadow:0 1px 2px #0006,0 6px 20px #0004; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0E1318; --surface:#161D24; --ink:#ECF0F3; --muted:#92A0AB; --line:#27323B; --chip:#202A33;
-  --accent:#ECF0F3; --accent-ink:#0E1318; --bad:#FF7A6B; --done:#3CCDB6; --done-soft:#103832; --kink:#0E1318;
+  --accent:#C8F031; --accent-ink:#11171C; --bad:#FF7A6B; --done:#3CCDB6; --done-soft:#103832; --kink:#0E1318;
   --shadow:0 1px 2px #0006,0 6px 20px #0004; color-scheme:dark}
 .bk0{--k:#0B7F70;--ks:#DDF0EC}.bk1{--k:#2F5BD0;--ks:#E2E9FB}.bk2{--k:#9A5A00;--ks:#F7EBD6}.bk3{--k:#C0392B;--ks:#F9E1DE}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .bk0{--k:#3CCDB6;--ks:#103832}:root:not([data-theme="light"]) .bk1{--k:#8AA6FF;--ks:#18234A}:root:not([data-theme="light"]) .bk2{--k:#F2B33D;--ks:#3A2B0C}:root:not([data-theme="light"]) .bk3{--k:#FF8577;--ks:#40201C}}
@@ -29,11 +29,8 @@ header{padding-top:14px}
 .sub{color:var(--muted);font-size:15px;margin-top:5px}
 
 /* barra superior y menú de cuenta */
-.appbar{display:flex;align-items:center;justify-content:space-between;padding-top:calc(12px + env(safe-area-inset-top,0px))}
+.appbar{display:flex;align-items:center;justify-content:space-between;margin-top:calc(10px + env(safe-area-inset-top,0px));padding:10px 12px 10px 12px;background:#11171C;color:#fff;border-radius:20px;box-shadow:var(--shadow)}
 .brand{display:flex;align-items:center;gap:9px;font:800 17px var(--display);letter-spacing:-.01em}
-.mark{display:grid;grid-template-columns:repeat(2,9px);gap:2px}
-.mark i{width:9px;height:9px;border-radius:3px;display:block}
-.mark i:nth-child(1){background:#0B7F70}.mark i:nth-child(2){background:#2F5BD0}.mark i:nth-child(3){background:#D9951A}.mark i:nth-child(4){background:#C0392B}
 .menuw{position:relative}
 .av{width:40px;height:40px;border-radius:50%;border:0;background:var(--ink) center/cover;color:var(--bg);font:800 16px var(--display);cursor:pointer;display:grid;place-items:center}
 .av.sm{width:38px;height:38px;font-size:15px;flex:none;cursor:inherit}
@@ -223,3 +220,8 @@ details.ses summary::-webkit-details-marker{display:none}
 .fit q{display:block;quotes:none;font-size:14px;color:var(--ink);background:var(--chip);border-radius:10px;padding:6px 10px;margin-top:4px;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .seen{display:block;width:100%;border:0;border-top:1px solid var(--line);background:none;color:var(--muted);font:700 13px var(--body);padding:9px;cursor:pointer}
 .fib .av.sm,.li .av.sm{width:40px;height:40px;min-width:40px;flex:none;padding:0;display:grid;place-items:center;border-radius:50%;line-height:1}
+
+.mark{flex:none;width:38px;height:38px;border-radius:12px;background:#C8F031;color:#11171C;display:grid;place-items:center}
+.bt2{display:grid;line-height:1.1}.bt2 small{font:600 11.5px var(--body);opacity:.7;margin-top:2px;letter-spacing:0}
+.appbar .av{background:#C8F031 center/cover;color:#11171C}
+.hero{margin-top:calc(34px + env(safe-area-inset-top,0px))}.hero .mark{width:56px;height:56px;border-radius:18px}.hero .mark svg{width:34px;height:34px}
