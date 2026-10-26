@@ -68,6 +68,7 @@ function facts(it){
   if(it.rest)f.push(['Descanso',it.rest]);
   return f;
 }
+const bname=b=>String(b||'').replace(/^.*bloque\s*:\s*/i,'').trim();
 const factHTML=f=>f.map(([l,v,c])=>`<div class="fact ${c||''}"><small>${l}</small>${esc(v)}</div>`).join('');
 const vidHTML=it=>it.video?`<a class="vid" href="${esc(it.video)}" target="_blank" rel="noopener">${PLAY}Ver vídeo</a>`:'<span class="novid">Sin vídeo</span>';
 function nav(m,withAdd){
@@ -104,16 +105,22 @@ function clientRoutine(){
   normNav(routine);
   const day=routine.weeks[S.w].days[S.d];
   let total=0,done=0;
-  let prevB=null,bi=-1,bn=0;
-  const cards=day.items.map(it=>{
-    let head='';const b=it.block||'';
-    if(b&&b!==prevB){bi++;bn=0;const grp=day.items.filter(x=>x.block===b);const sr=grp.find(x=>x.series);const rs=grp.find(x=>x.rest);head=`<div class="blk"><b>${esc(b)}</b><small>${grp.length>1?'Superserie · ':''}${sr?esc(sr.series)+' series':''}${rs?' · descanso '+esc(rs.rest):''}</small></div>`}
-    prevB=b;if(b)bn++;const tag=b?String.fromCharCode(65+bi)+bn+' · ':'';
+  const exHTML=(it,tag,solo)=>{
     const c=isCardio(it);const sets=dget(it);total+=sets.length;done+=sets.filter(x=>x.done).length;
     const last=lastFor(it.id);
     const rows=sets.map((s,i)=>c?`<div class="srow c"><i>${i+1}</i><span>${esc(it.series||'')} min</span><button class="set" data-ex="${it.id}" data-i="${i}" data-act="tog" aria-pressed="${s.done}" aria-label="Hecho">${s.done?'✓':'•'}</button></div>`
       :`<div class="srow"><i>${i+1}</i><input inputmode="decimal" data-ex="${it.id}" data-i="${i}" data-fld="kg" value="${esc(s.kg)}" placeholder="${/^\d/.test(it.kg||'')?esc(it.kg):'kg'}" aria-label="Kilos serie ${i+1}"><input inputmode="numeric" data-ex="${it.id}" data-i="${i}" data-fld="reps" value="${esc(s.reps)}" placeholder="${esc(it.reps||'reps')}" aria-label="Repeticiones serie ${i+1}"><button class="set" data-ex="${it.id}" data-i="${i}" data-act="tog" aria-pressed="${s.done}" aria-label="Serie ${i+1} hecha">${s.done?'✓':'•'}</button></div>`).join('');
-    return head+`<article class="card ${sets.every(x=>x.done)?'done':''}"><div class="cat">${tag}${esc((it.cat||'').replace(/_/g,' '))}</div><div class="name">${esc(it.name)}</div><div class="facts">${factHTML(facts(it))}</div>${last?`<p class="hint">Última vez: ${esc(last)}</p>`:''}${rows}<div style="margin-top:6px">${vidHTML(it)}</div></article>`;
+    const plan=c?[it.series&&it.series+' min',it.reps].filter(Boolean).join(' · '):[solo&&it.series&&it.series+' series',it.reps,it.kg&&('Carga: '+n$(it.kg)),solo&&it.rest&&'descanso '+it.rest].filter(Boolean).join(' · ');
+    return `<div class="bex"><div class="name">${tag?`<span class="tg">${tag}</span>`:''}${esc(it.name)}</div>${plan?`<div class="plan">${esc(plan)}</div>`:''}${last?`<p class="hint">Última vez: ${esc(last)}</p>`:''}${rows}<div style="margin-top:6px">${vidHTML(it)}</div></div>`;
+  };
+  const groups=[];
+  day.items.forEach(it=>{const g=groups[groups.length-1];if(it.block&&g&&g.block===it.block)g.items.push(it);else groups.push({block:it.block||'',items:[it]})});
+  const cards=groups.map((g,gi)=>{
+    const sr=g.items.find(x=>x.series),rs=g.items.find(x=>x.rest);
+    const inner=g.items.map((it,k)=>exHTML(it,g.block?String.fromCharCode(65+gi)+(k+1):'',!g.block)).join('');
+    const all=g.items.every(it=>dget(it).every(x=>x.done));
+    const hd=g.block?`<div class="bh"><b>${esc(bname(g.block))}</b><small>${g.items.length>1?'Superserie · ':''}${sr?esc(sr.series)+' series':''}${rs?' · descanso '+esc(rs.rest):''}</small></div>`:'';
+    return `<article class="card bcard ${all?'done':''}">${hd}${inner}</article>`;
   }).join('')||'<div class="empty">Este día aún no tiene ejercicios.</div>';
   const fin=finish?`<div class="sheet"><h2>Terminar sesión</h2><div><label>Cómo te has sentido</label><div class="feel" style="margin-top:8px">${[1,2,3,4,5].map(n=>`<button data-act="feel" data-n="${n}" aria-pressed="${finish.feeling===n}">${n}</button>`).join('')}</div><div class="fl"><span>${FEEL[0]}</span><span>${FEEL[4]}</span></div></div><label>Notas para tu entrenador<textarea id="fnote" placeholder="Dolor, sensaciones, cambios que hiciste...">${esc(finish.notes)}</textarea></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" data-act="savesession" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar sesión'}</button><button class="back" data-act="cancelfin">Seguir entrenando</button></div>`
     :`<button class="btn big" style="margin-top:6px" data-act="fin" ${done?'':'disabled'}>Terminar sesión</button>`;
@@ -142,7 +149,7 @@ function coachView(){
     body=`<main class="panel"><h2>Plantilla base</h2><p class="hint">Es la rutina que se copia a un cliente nuevo. Cambiarla no modifica las rutinas ya asignadas.</p>${tpl?`<button class="btn big" data-act="edittpl">Editar plantilla</button>`:'<div class="empty">Aún no hay plantilla base.</div><button class="btn big" data-act="newtpl">Crear plantilla vacía</button>'}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}</main>`;
   }else if(sel){
     const has=assigned.has(sel.id);
-    body=`<button class="back" data-act="backc">← Clientes</button><main class="panel"><h2>${esc(label(sel))}</h2><p class="hint" style="margin:0">${esc(sel.email)}</p><div class="ed2" style="display:flex;gap:8px"><input id="cname" value="${esc(sel.name||'')}" placeholder="Nombre del cliente" aria-label="Nombre del cliente"><button class="btn sec" data-act="savename">Guardar</button></div>${has?`<button class="btn big" data-act="editr">Editar su rutina</button>`:`<div class="empty">Este cliente aún no tiene rutina.</div><button class="btn big" data-act="assign" ${tpl?'':'disabled'}>Asignar plantilla base</button>${tpl?'':'<p class="hint">Crea primero la plantilla base.</p>'}`}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<h2 style="margin-top:14px">Sesiones registradas</h2>${cSessions.length?cSessions.map(sessionHTML).join(''):'<div class="empty">Todavía no ha registrado sesiones.</div>'}</main>`;
+    body=`<button class="back" data-act="backc">← Clientes</button><main class="panel"><h2>${esc(label(sel))}</h2><p class="hint" style="margin:0">${esc(sel.email)}</p><div class="ed2" style="display:flex;gap:8px"><input id="cname" value="${esc(sel.name||'')}" placeholder="Nombre del cliente" aria-label="Nombre del cliente"><button class="btn sec" data-act="savename">Guardar</button></div><label class="btn sec" for="xlsc" style="display:block;text-align:center;margin-top:10px">Cargar Excel (.xlsm) para este cliente</label><input type="file" id="xlsc" accept=".xlsm,.xlsx" hidden>${has?`<button class="btn big" data-act="editr">Editar su rutina</button>`:`<div class="empty">Este cliente aún no tiene rutina.</div><button class="btn big" data-act="assign" ${tpl?'':'disabled'}>Asignar plantilla base</button>${tpl?'':'<p class="hint">Crea primero la plantilla base.</p>'}`}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<h2 style="margin-top:14px">Sesiones registradas</h2>${cSessions.length?cSessions.map(sessionHTML).join(''):'<div class="empty">Todavía no ha registrado sesiones.</div>'}</main>`;
   }else{
     body=`<main class="panel"><h2>Tus clientes</h2>${clients.length?clients.map(c=>`<button class="li" data-act="pick" data-id="${esc(c.id)}"><span><b>${esc(label(c))}</b><small>${assigned.has(c.id)?'Rutina asignada':'Sin rutina'}</small></span><span class="tag ${assigned.has(c.id)?'ok':''}">${assigned.has(c.id)?'Activo':'Pendiente'}</span></button>`).join(''):'<div class="empty">Aún no hay clientes. Invítalos desde Supabase: Authentication → Users → Invite user. Aparecerán aquí cuando acepten.</div>'}<button class="btn sec" data-act="reload">Actualizar lista</button></main>`;
   }
@@ -156,8 +163,8 @@ function editorView(){
   const m=edit.model;normNav(m);const day=m.weeks[S.w].days[S.d];
   const f=(it,k,l,full)=>`<div class="${full?'full':''}"><label>${l}<input data-id="${it.id}" data-f="${k}" value="${esc(it[k])}" ${k==='name'?'list="lib"':''} ${k==='video'?'inputmode="url" placeholder="https://youtube.com/..."':''}></label></div>`;
   return head(`<input class="titlein" id="ttl" value="${esc(m.title)}" aria-label="Título" style="width:100%;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:8px 10px">`,esc(edit.label))+nav(m,true)+`<main><div class="card ed" style="margin-top:14px"><div class="grid"><div><label>Nombre de la semana<input data-wf="name" value="${esc(m.weeks[S.w].name)}"></label></div><div><label>Nombre del día<input data-df="name" value="${esc(day.name)}"></label></div></div><div class="tools"><button class="btn warn" data-act="delday">Quitar este día</button><button class="btn warn" data-act="delwk">Quitar esta semana</button><button class="btn sec" data-act="dupwk">Copiar semana</button></div></div><div style="height:12px"></div>`
-   +(edit.kind==='tpl'?importCard():'')
-   +day.items.map((it,i)=>(it.block&&it.block!==(day.items[i-1]||{}).block?`<div class="blk"><b>${esc(it.block)}</b></div>`:'')+`<article class="card ed"><div class="grid">${f(it,'block','Bloque (superserie)',1)}${f(it,'name','Ejercicio',1)}${f(it,'cat','Categoría',1)}${f(it,'series','Series')}${f(it,'reps','Repeticiones')}${f(it,'kg','Carga')}${f(it,'rest','Descanso')}${f(it,'video','Enlace del vídeo',1)}</div><div class="tools"><button class="btn sec" data-act="up" data-i="${i}">Subir</button><button class="btn sec" data-act="down" data-i="${i}">Bajar</button><button class="btn warn" data-act="del" data-i="${i}">Quitar</button></div></article>`).join('')
+   +importCard()
+   +day.items.map((it,i)=>(it.block&&it.block!==(day.items[i-1]||{}).block?`<div class="blk"><b>${esc(bname(it.block))}</b></div>`:'')+`<article class="card ed"><div class="grid">${f(it,'block','Bloque (superserie)',1)}${f(it,'name','Ejercicio',1)}${f(it,'cat','Categoría',1)}${f(it,'series','Series')}${f(it,'reps','Repeticiones')}${f(it,'kg','Carga')}${f(it,'rest','Descanso')}${f(it,'video','Enlace del vídeo',1)}</div><div class="tools"><button class="btn sec" data-act="up" data-i="${i}">Subir</button><button class="btn sec" data-act="down" data-i="${i}">Bajar</button><button class="btn warn" data-act="del" data-i="${i}">Quitar</button></div></article>`).join('')
    +`<button class="btn sec" data-act="addex" style="width:100%;padding:14px">+ Añadir ejercicio</button></main><div class="coach"><span>${esc(edit.label)}</span><button class="btn sec" data-act="canceled">Cancelar</button><button class="btn" data-act="saveed" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar'}</button>${S.err?`<div class="msg" role="alert">${esc(S.err)}</div>`:''}</div>`;
 }
 
@@ -218,7 +225,7 @@ async function act(a,t){
     S.busy=true;S.err='';render();
     const m=edit.model;let error;
     if(edit.kind==='tpl'){({error}=await sb.from('templates').upsert({id:'base',data:{title:m.title,weeks:m.weeks}}));if(!error)tpl={title:m.title,weeks:m.weeks}}
-    else({error}=await sb.from('routines').upsert({client_id:selClient,title:m.title,data:{weeks:m.weeks},updated_at:new Date().toISOString()}));
+    else{({error}=await sb.from('routines').upsert({client_id:selClient,title:m.title,data:{weeks:m.weeks},updated_at:new Date().toISOString()}));if(!error)assigned.add(selClient)}
     S.busy=false;if(error){S.err=werr(error);render();return}
     edit=null;render();return;
   }
@@ -280,6 +287,17 @@ async function parsePlan(buf){
   if(!weeks.length)throw new Error('La hoja Plan_SS1 no tiene ejercicios.');
   return{weeks,total,noVideo:[...noVideo]};
 }
+async function importForClient(file){
+  S.err='';
+  try{
+    const r=await parsePlan(await file.arrayBuffer());
+    let title='Mi rutina';
+    if(assigned.has(selClient)){const {data}=await sb.from('routines').select('title').eq('client_id',selClient).single();if(data&&data.title)title=data.title}
+    startEdit('routine',{title,weeks:r.weeks},'Rutina de '+label(clients.find(c=>c.id===selClient)));
+    edit.imp={ok:true,text:`Cargada${r.weeks.length>1?'s':''} ${r.weeks.length} semana${r.weeks.length>1?'s':''} y ${r.total} ejercicios desde "${file.name}". Revisa y pulsa Guardar para dársela a este cliente (o Cancelar para descartarlo).`,noVideo:r.noVideo};
+    render();
+  }catch(e){S.err=(e&&e.message)||'No se pudo leer el Excel.';render()}
+}
 async function importXlsx(file){
   edit.imp={busy:true};render();
   try{
@@ -334,6 +352,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='xlsf'&&edit&&t.files&&t.files[0]){importXlsx(t.files[0]);return}
+  if(t.id==='xlsc'&&selClient&&t.files&&t.files[0]){importForClient(t.files[0]);return}
   if(edit&&t.dataset.f==='name'){
     const l=lib.find(x=>x.name===t.value);
     if(l){const it=edit.model.weeks[S.w].days[S.d].items.find(x=>x.id===t.dataset.id);it.cat=l.cat||it.cat;it.video=l.video||'';setTimeout(render,0)}
