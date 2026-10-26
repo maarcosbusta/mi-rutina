@@ -199,3 +199,9 @@ details.ses summary::-webkit-details-marker{display:none}
 .st em{font-style:normal;font:800 11px var(--display);color:var(--muted)}
 .st.ok{border:1.5px solid var(--k);color:var(--ink)}.st.ok em{color:var(--k)}
 .snote{background:var(--chip);border-radius:12px;padding:10px 12px;font-size:14px}.snote b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:2px}
+
+.lt{color:var(--done)!important;font-weight:600}
+.rbtn{flex:none;width:48px;height:48px;border-radius:14px;border:1.5px solid #ffffff40;background:none;color:var(--bg);font-size:22px;cursor:pointer}
+.rest{position:sticky;bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:7;margin-top:14px;display:flex;align-items:center;gap:10px;background:var(--done);color:#fff;border-radius:16px;padding:10px 12px 10px 16px;box-shadow:var(--shadow)}
+.rest span{font:700 14px var(--body);opacity:.9}.rest b{flex:1;font:800 28px var(--display);font-variant-numeric:tabular-nums}
+.rest button{border:0;border-radius:11px;background:#ffffff30;color:#fff;font:700 14px var(--body);padding:10px 12px;cursor:pointer}

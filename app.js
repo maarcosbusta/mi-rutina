@@ -102,10 +102,25 @@ const noconfigView=()=>head('<h1>Falta configurar</h1>','')+`<div class="hero"><
 const dkey=()=>S.w+'|'+S.d;
 const isCardio=it=>it.cat==='Cardio';
 const dget=it=>{const k=dkey();draft[k]=draft[k]||{};return draft[k][it.id]=draft[k][it.id]||Array.from({length:isCardio(it)?1:(parseInt(it.series)||1)},()=>({kg:'',reps:'',done:false}))};
-function lastFor(id){
-  for(const s of sessions){const it=(s.items||[]).find(x=>x.id===id);if(it){const t=(it.sets||[]).filter(x=>x.done).map(x=>(x.kg||'–')+'×'+(x.reps||'–')).join(' · ');if(t)return t}}
-  return '';
+function lastSets(it){
+  const nm=String(it.name||'').trim().toLowerCase();
+  for(const s of sessions){const x=(s.items||[]).find(y=>y.id===it.id)||(s.items||[]).find(y=>String(y.name||'').trim().toLowerCase()===nm);if(x){const ss=x.sets||[];if(ss.some(q=>q.done&&(q.kg||q.reps)))return ss}}
+  return null;
 }
+function lastFor(it){const ss=lastSets(it);return ss?ss.filter(x=>x.done&&(x.kg||x.reps)).map(x=>(x.kg||'–')+'×'+(x.reps||'–')).join(' · '):''}
+const restSecs=r=>{r=String(r||'').toLowerCase().trim();if(!r||/continu/.test(r))return 0;let m;
+  if(m=r.match(/(\d+)\s*(?:'|min|m\b)\s*(\d+)?/))return(+m[1])*60+(+m[2]||0);
+  if(m=r.match(/(\d+)/)){const n=+m[1];return n<10?n*60:n}return 0};
+let restTimer=null,restIv=null;
+const fmtT=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+function beep(){try{navigator.vibrate&&navigator.vibrate([250,120,250]);const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.15;o.start();o.stop(c.currentTime+.35)}catch(e){}}
+function startRest(sec){
+  if(!sec)return;clearInterval(restIv);restTimer={end:Date.now()+sec*1000};render();
+  restIv=setInterval(()=>{if(!restTimer){clearInterval(restIv);return}const left=Math.ceil((restTimer.end-Date.now())/1000),el=document.getElementById('restt');
+    if(left<=0){stopRest(true);return}if(el)el.textContent=fmtT(left)},250);
+}
+function stopRest(ring){clearInterval(restIv);restTimer=null;if(ring)beep();render()}
+function restBar(){if(!restTimer)return '';const left=Math.max(0,Math.ceil((restTimer.end-Date.now())/1000));return `<div class="rest" role="timer" aria-live="off"><span>Descanso</span><b id="restt">${fmtT(left)}</b><button data-act="restadd">+15 s</button><button data-act="restskip">Saltar</button></div>`}
 function findEx(id){for(const w of routine.weeks)for(const d of w.days)for(const i of d.items)if(i.id===id)return i}
 function clientRoutine(){
   normNav(routine);
@@ -114,9 +129,9 @@ function clientRoutine(){
   const [total,done]=stat(day.items);
   const exHTML=(it)=>{
     const c=isCardio(it);const sets=dget(it);
-    const last=lastFor(it.id);
+    const last=lastFor(it),ls=lastSets(it)||[];
     const rows=sets.map((s,i)=>c?`<div class="srow c"><i>${i+1}</i><span>${esc(it.series||'')} min</span><button class="set" data-ex="${it.id}" data-i="${i}" data-act="tog" aria-pressed="${s.done}" aria-label="Hecho">${s.done?'✓':'•'}</button></div>`
-      :`<div class="srow"><i>${i+1}</i><input inputmode="decimal" data-ex="${it.id}" data-i="${i}" data-fld="kg" value="${esc(s.kg)}" placeholder="${/^\d/.test(it.kg||'')?esc(it.kg):'kg'}" aria-label="Kilos serie ${i+1}"><input inputmode="numeric" data-ex="${it.id}" data-i="${i}" data-fld="reps" value="${esc(s.reps)}" placeholder="reps" aria-label="Repeticiones serie ${i+1}"><button class="set" data-ex="${it.id}" data-i="${i}" data-act="tog" aria-pressed="${s.done}" aria-label="Serie ${i+1} hecha">${s.done?'✓':'•'}</button></div>`).join('');
+      :`<div class="srow"><i>${i+1}</i><input inputmode="decimal" data-ex="${it.id}" data-i="${i}" data-fld="kg" value="${esc(s.kg)}" placeholder="${esc((ls[i]||{}).kg||(/^\d/.test(it.kg||'')?it.kg:'kg'))}" aria-label="Kilos serie ${i+1}"><input inputmode="numeric" data-ex="${it.id}" data-i="${i}" data-fld="reps" value="${esc(s.reps)}" placeholder="${esc((ls[i]||{}).reps||'reps')}" aria-label="Repeticiones serie ${i+1}"><button class="set" data-ex="${it.id}" data-i="${i}" data-act="tog" aria-pressed="${s.done}" aria-label="Serie ${i+1} hecha">${s.done?'✓':'•'}</button></div>`).join('');
     const plan=c?[it.series&&it.series+' min',it.reps].filter(Boolean).join(' · '):[it.series&&it.series+' series',it.reps,it.kg&&('Carga: '+n$(it.kg)),it.rest&&'descanso '+it.rest].filter(Boolean).join(' · ');
     return `<div class="bex"><div class="name">${esc(it.name)}</div>${plan?`<div class="plan">${esc(plan)}</div>`:''}${last?`<p class="hint">Última vez: ${esc(last)}</p>`:''}${rows}<div style="margin-top:6px">${vidHTML(it)}</div></div>`;
   };
@@ -127,7 +142,7 @@ function clientRoutine(){
   const blockHTML=(g,gi)=>{
     const sr=g.items.find(x=>x.series),rs=g.items.find(x=>x.rest);
     const [bt,bd]=stat(g.items);
-    const legend=g.items.map((it,k)=>`<li class="ex"><span class="dot" aria-hidden="true"></span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small></div>${miniVid(it)}</li>`).join('');
+    const legend=g.items.map((it,k)=>`<li class="ex"><span class="dot" aria-hidden="true"></span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small>${lastFor(it)?`<small class="lt">Última vez: ${esc(lastFor(it))}</small>`:''}</div>${miniVid(it)}</li>`).join('');
     const rounds=Math.max(0,...g.items.map(it=>dget(it).length));
     let rh='';
     for(let r=0;r<rounds;r++){
@@ -136,7 +151,7 @@ function clientRoutine(){
       rh+=`<div class="round"><div class="rh"><span>Serie ${r+1}</span><button class="rall" data-act="round" data-ids="${have.map(it=>it.id).join(',')}" data-i="${r}" aria-pressed="${rdone}">${rdone?'Serie hecha ✓':'Marcar toda la serie'}</button></div>`+g.items.map((it,k)=>{
         const s=dget(it)[r];if(!s)return '';
         const ctl=isCardio(it)?`<span class="rc">${esc(it.series||'')} min</span>`
-          :`<input inputmode="decimal" data-ex="${it.id}" data-i="${r}" data-fld="kg" value="${esc(s.kg)}" placeholder="${/^\d/.test(it.kg||'')?esc(it.kg):'kg'}" aria-label="Kilos ${esc(it.name)} serie ${r+1}"><input inputmode="numeric" data-ex="${it.id}" data-i="${r}" data-fld="reps" value="${esc(s.reps)}" placeholder="reps" aria-label="Repeticiones ${esc(it.name)} serie ${r+1}">`;
+          :`<input inputmode="decimal" data-ex="${it.id}" data-i="${r}" data-fld="kg" value="${esc(s.kg)}" placeholder="${esc(((lastSets(it)||[])[r]||{}).kg||(/^\d/.test(it.kg||'')?it.kg:'kg'))}" aria-label="Kilos ${esc(it.name)} serie ${r+1}"><input inputmode="numeric" data-ex="${it.id}" data-i="${r}" data-fld="reps" value="${esc(s.reps)}" placeholder="${esc(((lastSets(it)||[])[r]||{}).reps||'reps')}" aria-label="Repeticiones ${esc(it.name)} serie ${r+1}">`;
         return `<div class="rrow"><span class="rn"><em>${esc(it.name)}</em></span>${ctl}<button class="set" data-ex="${it.id}" data-i="${r}" data-act="tog" aria-pressed="${s.done}" aria-label="${esc(it.name)} serie ${r+1} hecha">${s.done?'✓':'•'}</button></div>`;
       }).join('')+`</div>`;
     }
@@ -150,7 +165,7 @@ function clientRoutine(){
     return `<article class="card bcard">${g.items.map(exHTML).join('')}</article>`;
   }).join('')||'<div class="empty">Este día aún no tiene ejercicios.</div>';
   const fin=finish?`<div class="sheet"><h2>Terminar sesión</h2><div><label>Cómo te has sentido</label><div class="feel" style="margin-top:8px">${[1,2,3,4,5].map(n=>`<button data-act="feel" data-n="${n}" aria-pressed="${finish.feeling===n}">${n}</button>`).join('')}</div><div class="fl"><span>${FEEL[0]}</span><span>${FEEL[4]}</span></div></div><label>Notas para tu entrenador<textarea id="fnote" placeholder="Dolor, sensaciones, cambios que hiciste...">${esc(finish.notes)}</textarea></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" data-act="savesession" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar sesión'}</button><button class="back" data-act="cancelfin">Seguir entrenando</button></div>`
-    :`<div class="dock"><div class="dk"><b>${done}</b><small>de ${total} series</small></div><button class="btn" data-act="fin" ${done?'':'disabled'}>Terminar sesión</button></div>`;
+    :restBar()+`<div class="dock"><div class="dk"><b>${done}</b><small>de ${total} series</small></div><button class="rbtn" data-act="rest" aria-label="Temporizador de descanso">⏱</button><button class="btn" data-act="fin" ${done?'':'disabled'}>Terminar sesión</button></div>`;
   return nav(routine)+`<main>${map}${cards}${fin}</main>`;
 }
 function sessionHTML(s){
@@ -229,7 +244,7 @@ function render(){
 const werr=e=>e&&e.message?('No se pudo guardar: '+e.message):'No se pudo guardar. Prueba de nuevo.';
 function saveDraft(){saveJ('rutina-draft-'+me.id,draft)}
 async function act(a,t){
-  if(a==='logout'){S.menu=false;S.prevOn=false;S.prev=null;await sb.auth.signOut();me=null;routine=null;sessions=[];selClient=null;edit=null;finish=null;S.state='login';S.err='';render();return}
+  if(a==='logout'){S.menu=false;S.prevOn=false;S.prev=null;clearInterval(restIv);restTimer=null;await sb.auth.signOut();me=null;routine=null;sessions=[];selClient=null;edit=null;finish=null;S.state='login';S.err='';render();return}
   if(a==='photo'){S.menu=false;render();document.getElementById('avf').click();return}
   if(a==='rmphoto'){S.menu=false;await setAvatar(null);return}
   if(a==='menu'){S.menu=!S.menu;render();return}
@@ -237,8 +252,11 @@ async function act(a,t){
   if(a==='cancelpw'){S.chpw=false;S.err='';await enter();return}
   if(a==='forgot'){S.forgot=true;S.err='';S.info='';render();return}
   if(a==='backlogin'){S.forgot=false;S.err='';S.info='';render();return}
-  if(a==='tog'){const it=findEx(t.dataset.ex);const s=dget(it)[+t.dataset.i];s.done=!s.done;saveDraft();render();return}
-  if(a==='round'){const ids=t.dataset.ids.split(','),i=+t.dataset.i;const its=ids.map(findEx);const all=its.every(it=>dget(it)[i].done);its.forEach(it=>{dget(it)[i].done=!all});saveDraft();render();return}
+  if(a==='tog'){const it=findEx(t.dataset.ex);const s=dget(it)[+t.dataset.i];s.done=!s.done;saveDraft();if(s.done&&restSecs(it.rest)){startRest(restSecs(it.rest));return}render();return}
+  if(a==='rest'){restTimer?stopRest():startRest(60);return}
+  if(a==='restadd'){if(restTimer){restTimer.end+=15000;render()}return}
+  if(a==='restskip'){stopRest();return}
+  if(a==='round'){const ids=t.dataset.ids.split(','),i=+t.dataset.i;const its=ids.map(findEx);const all=its.every(it=>dget(it)[i].done);its.forEach(it=>{dget(it)[i].done=!all});saveDraft();const rs=Math.max(0,...its.map(it=>restSecs(it.rest)));if(!all&&rs){startRest(rs);return}render();return}
   if(a==='fin'){finish={feeling:0,notes:''};S.err='';render();return}
   if(a==='cancelfin'){finish=null;render();return}
   if(a==='feel'){finish.feeling=+t.dataset.n;render();return}
