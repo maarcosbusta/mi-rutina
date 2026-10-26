@@ -155,7 +155,15 @@ function clientRoutine(){
 }
 function sessionHTML(s){
   const its=s.items||[];let t=0,d=0;its.forEach(i=>(i.sets||[]).forEach(x=>{t++;if(x.done)d++}));
-  return `<details class="ses"><summary><span><b>${esc(s.dname||'Sesión')}</b><br><small class="sub">${esc(fdate(s.date))} · ${esc(s.wname||'')}</small></span><span class="tag ${d===t?'ok':''}">${d}/${t} series${s.feeling?' · '+s.feeling+'/5':''}</span></summary>${its.map(i=>`<div class="ex"><strong>${esc(i.name)}</strong>${(i.sets||[]).map((x,n)=>`${n+1}: ${esc(x.kg||'–')} kg × ${esc(x.reps||'–')}${x.done?'':' (sin hacer)'}`).join('<br>')}</div>`).join('')}${s.notes?`<p class="hint" style="margin-top:10px">Nota: ${esc(s.notes)}</p>`:''}</details>`;
+  const dt=new Date(s.date),ok=!isNaN(dt);
+  const day=ok?dt.getDate():'·',mon=ok?dt.toLocaleDateString('es-ES',{month:'short'}).replace('.',''):'';
+  const wk=ok?dt.toLocaleDateString('es-ES',{weekday:'long'}):'';
+  const pct=t?Math.round(d/t*100):0;
+  const f=+s.feeling||0;
+  const dots=f?`<span class="fl" title="${esc(FEEL[f-1]||'')}">${[1,2,3,4,5].map(n=>`<i class="${n<=f?'on':''}"></i>`).join('')}</span><span class="fw">${esc(FEEL[f-1]||'')}</span>`:'';
+  const gs=[];its.forEach(i=>{const k=i.block||'';const l=gs[gs.length-1];if(l&&l.k===k)l.items.push(i);else gs.push({k,items:[i]})});
+  const body=gs.map((g,gi)=>`<div class="sb bk${gi%4}">${g.k?`<div class="sbh"><span class="sbn">${gi+1}</span>${esc(bname(g.k))}</div>`:''}${g.items.map(i=>`<div class="sx"><strong>${esc(i.name)}</strong><div class="sets">${(i.sets||[]).map((x,n)=>`<span class="st${x.done?' ok':''}"><em>${n+1}</em>${x.kg||x.reps?(x.kg?esc(x.kg)+' kg':'–')+' × '+(x.reps?esc(x.reps):'–'):'Sin datos'}</span>`).join('')}</div></div>`).join('')}</div>`).join('');
+  return `<details class="ses"><summary><div class="dt"><b>${day}</b><small>${esc(mon)}</small></div><div class="si"><strong>${esc(s.dname||'Sesión')}</strong><small>${esc(wk)}${s.wname?' · '+esc(s.wname):''}</small><div class="pb"><i style="width:${pct}%"></i></div><div class="sm"><span class="tag ${d===t&&t?'ok':''}">${d}/${t} series</span>${dots}</div></div><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary><div class="sbody">${body}${s.notes?`<div class="snote"><b>Nota</b>${esc(s.notes)}</div>`:''}</div></details>`;
 }
 function clientView(){
   const tabs=`<div class="seg"><button data-tab="rutina" aria-pressed="${S.tab==='rutina'}">Rutina</button><button data-tab="historial" aria-pressed="${S.tab==='historial'}">Historial</button></div>`;
