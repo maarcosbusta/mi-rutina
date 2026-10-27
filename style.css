@@ -292,3 +292,11 @@ summary:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .cnt{flex:none;font:600 13px var(--mono);border-radius:6px;padding:4px 8px;background:var(--chip);color:var(--ink)}
 .cnt.full{background:var(--done);color:#fff}
 .bex[open] .bsum{margin-bottom:6px}
+
+/* tipo de bloque: superserie o series normales */
+.eblk{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:14px;margin:18px 0 10px;display:grid;gap:12px}
+.eblk .bh{margin:0;padding:0;background:none}
+.mode{display:grid;grid-template-columns:1fr 1fr;background:var(--chip);border-radius:10px;padding:4px;gap:4px}
+.mode button{border:0;border-radius:7px;background:transparent;color:var(--muted);padding:10px 6px;cursor:pointer;font:700 15px var(--display);text-transform:uppercase;letter-spacing:.06em}
+.mode button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.chips .kind{background:var(--ks);color:var(--k);font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.08em}

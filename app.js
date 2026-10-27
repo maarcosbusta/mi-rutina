@@ -127,7 +127,12 @@ const dkey=()=>S.w+'|'+S.d;
 S.ro={};
 const CHEV='<svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 const isCardio=it=>it.cat==='Cardio';
-const dget=it=>{const k=dkey();draft[k]=draft[k]||{};return draft[k][it.id]=draft[k][it.id]||Array.from({length:isCardio(it)?1:(parseInt(it.series)||1)},()=>({kg:'',reps:'',done:false}))};
+// Bloques seguidos con el mismo nombre. Superserie: lo elige el entrenador (it.ss); si no, 2+ ejercicios.
+function groupsOf(items){const gs=[];items.forEach((it,i)=>{const g=gs[gs.length-1];if(it.block&&g&&g.block===it.block)g.items.push(it);else gs.push({block:it.block||'',start:i,items:[it]})});return gs}
+const isSS=g=>!!g.block&&(g.items[0].ss!==undefined?!!g.items[0].ss:g.items.length>1);
+// En una superserie, series y descanso son del bloque: se copian del primer ejercicio.
+function syncSS(g){const f=g.items[0];g.items.forEach(it=>{it.ss=true;it.series=f.series;it.rest=f.rest})}
+const dget=it=>{const k=dkey();draft[k]=draft[k]||{};const n=isCardio(it)?1:(parseInt(it.series)||1),a=draft[k][it.id]=draft[k][it.id]||[];while(a.length<n)a.push({kg:'',reps:'',done:false});return a};
 function lastSets(it){
   const nm=String(it.name||'').trim().toLowerCase();
   for(const s of sessions){const x=(s.items||[]).find(y=>y.id===it.id)||(s.items||[]).find(y=>String(y.name||'').trim().toLowerCase()===nm);if(x){const ss=x.sets||[];if(ss.some(q=>q.done&&(q.kg||q.reps)))return ss}}
@@ -162,8 +167,8 @@ function clientRoutine(){
     const k=dkey()+'-e'+it.id,nd=sets.filter(s=>s.done).length,all=nd===sets.length,op=S.ro[k]!==undefined?S.ro[k]:!!cur&&!all;
     return `<details class="bex ro" data-k="${k}" data-b="${k}"${op?' open':''}><summary class="bsum"><span class="name">${esc(it.name)}</span><span class="cnt ${all?'full':''}">${nd}/${sets.length}</span>${CHEV}</summary>${plan?`<div class="plan">${esc(plan)}</div>`:''}${last?`<p class="hint">Última vez: ${esc(last)}</p>`:''}${rows}<div style="margin-top:6px">${vidHTML(it)}</div></details>`;
   };
-  const groups=[];
-  day.items.forEach(it=>{const g=groups[groups.length-1];if(it.block&&g&&g.block===it.block)g.items.push(it);else groups.push({block:it.block||'',items:[it]})});
+  const groups=groupsOf(day.items);
+  groups.forEach(g=>{if(isSS(g)){const f=g.items[0];g.items.forEach(it=>{if(!it.series)it.series=f.series;if(!it.rest)it.rest=f.rest})}});
   const miniVid=it=>it.video?`<a class="play" href="${esc(it.video)}" target="_blank" rel="noopener" aria-label="Ver vídeo de ${esc(it.name)}">${PLAY}</a>`:'';
   const planOf=it=>[it.reps,it.kg&&('Carga: '+n$(it.kg))].filter(Boolean).join(' · ');
   const blockHTML=(g,gi,cur)=>{
@@ -186,13 +191,17 @@ function clientRoutine(){
       }).join('')+`</details>`;
     }
     const chips=[sr?sr.series+' series':'',rs?'Descanso '+rs.rest.toLowerCase():''].filter(Boolean);
-    return `<section class="card bcard bk${gi%4} ${bd===bt&&bt?'done':''}" id="blk${gi}"><div class="bh"><span class="bn">${gi+1}</span><div class="bt"><h2>${esc(bname(g.block))}</h2><div class="chips">${chips.map(c=>`<span>${esc(c)}</span>`).join('')}</div></div><span class="bp">${bd}/${bt}</span></div><ul class="legend">${legend}</ul>${rh}</section>`;
+    return blockHead(g,gi,'Superserie',chips)+`<ul class="legend">${legend}</ul>${rh}</section>`;
   };
+  const blockHead=(g,gi,kind,chips)=>{const [bt,bd]=stat(g.items);return `<section class="card bcard bk${gi%4} ${bd===bt&&bt?'done':''}" id="blk${gi}"><div class="bh"><span class="bn">${gi+1}</span><div class="bt"><h2>${esc(bname(g.block))}</h2><div class="chips"><span class="kind">${kind}</span>${chips.map(c=>`<span>${esc(c)}</span>`).join('')}</div></div><span class="bp">${bd}/${bt}</span></div>`};
+  // Series normales: cada ejercicio entero, solo abierto el primero sin terminar
+  const normalHTML=(g,gi,cur)=>{const f=g.items.find(it=>dget(it).some(s=>!s.done));return blockHead(g,gi,'Series normales',[g.items.length+(g.items.length>1?' ejercicios':' ejercicio')])+g.items.map(it=>exHTML(it,cur&&it===f)).join('')+`</section>`};
   const blocked=groups.filter(g=>g.block);
   const map=blocked.length>1?`<div class="map" role="group" aria-label="Bloques de la sesión">${groups.map((g,gi)=>{if(!g.block)return '';const [t,d]=stat(g.items);return `<button class="bk${gi%4} ${d===t&&t?'full':''}" data-go="blk${gi}" style="--p:${t?d/t*100:0}%" aria-label="Ir al bloque ${esc(bname(g.block))}, ${d} de ${t} series"><span>${esc(bname(g.block))}</span></button>`}).join('')}</div>`:'';
   const curG=groups.findIndex(g=>g.items.some(it=>dget(it).some(s=>!s.done)));
   const cards=groups.map((g,gi)=>{
-    if(g.block)return blockHTML(g,gi,gi===curG);
+    if(isSS(g))return blockHTML(g,gi,gi===curG);
+    if(g.block)return normalHTML(g,gi,gi===curG);
     return `<article class="card bcard">${g.items.map(it=>exHTML(it,gi===curG)).join('')}</article>`;
   }).join('')||'<div class="empty">Este día aún no tiene ejercicios.</div>';
   const fin=finish?`<div class="sheet"><h2>Terminar sesión</h2><div><label>¿Qué esfuerzo has sentido en esta sesión?</label><div class="feel" style="margin-top:8px">${[1,2,3,4,5].map(n=>`<button class="e${n}" data-act="feel" data-n="${n}" aria-pressed="${finish.feeling===n}"><b>${n}</b><small>${FSHORT[n-1]}</small></button>`).join('')}</div><p class="ft">${finish.feeling?`<b>${finish.feeling}</b> · ${FEEL[finish.feeling-1]}`:'1 = casi sin esfuerzo · 5 = esfuerzo máximo'}</p></div><label>Notas para tu entrenador<textarea id="fnote" placeholder="Dolor, sensaciones, cambios que hiciste...">${esc(finish.notes)}</textarea></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" data-act="savesession" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar sesión'}</button><button class="back" data-act="cancelfin">Seguir entrenando</button></div>`
@@ -301,7 +310,9 @@ function editorView(){
   const f=(it,k,l,full)=>`<div class="${full?'full':''}"><label>${l}<input data-id="${it.id}" data-f="${k}" value="${esc(it[k])}" ${k==='name'?'list="lib"':''} ${k==='video'?'inputmode="url" placeholder="https://youtube.com/..."':''}></label></div>`;
   return head(`<input class="titlein" id="ttl" value="${esc(m.title)}" aria-label="Título" style="width:100%;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:8px 10px">`,esc(edit.label))+nav(m,true)+`<main><div class="card ed" style="margin-top:14px"><div class="grid"><div><label>Nombre de la semana<input data-wf="name" value="${esc(m.weeks[S.w].name)}"></label></div><div><label>Nombre del día<input data-df="name" value="${esc(day.name)}"></label></div></div><div class="tools"><button class="btn warn" data-act="delday">Quitar este día</button><button class="btn warn" data-act="delwk">Quitar esta semana</button><button class="btn sec" data-act="dupwk">Copiar semana</button></div></div><div style="height:12px"></div>`
    +importCard()
-   +day.items.map((it,i)=>(it.block&&it.block!==(day.items[i-1]||{}).block?`<div class="blk"><b>${esc(bname(it.block))}</b></div>`:'')+`<article class="card ed"><div class="grid">${f(it,'block','Bloque (superserie)',1)}${f(it,'name','Ejercicio',1)}${f(it,'series','Series')}${f(it,'reps','Repeticiones')}${f(it,'kg','Carga')}${f(it,'rest','Descanso')}${f(it,'video','Enlace del vídeo',1)}</div><div class="tools"><button class="btn sec" data-act="up" data-i="${i}">Subir</button><button class="btn sec" data-act="down" data-i="${i}">Bajar</button><button class="btn warn" data-act="del" data-i="${i}">Quitar</button></div></article>`).join('')
+   +groupsOf(day.items).map((g,gi)=>{const ss=isSS(g),fi=g.items[0],bf=(k,l)=>`<div><label>${l}<input data-bf="${k}" data-i="${g.start}" value="${esc(fi[k])}"></label></div>`;
+     return (g.block?`<section class="eblk bk${gi%4}"><div class="bh"><span class="bn">${gi+1}</span><div class="bt"><h2>${esc(bname(g.block))}</h2></div></div><div class="mode" role="group" aria-label="Tipo de bloque"><button data-act="bmode" data-m="ss" data-i="${g.start}" aria-pressed="${ss}">Superserie</button><button data-act="bmode" data-m="normal" data-i="${g.start}" aria-pressed="${!ss}">Series normales</button></div><p class="hint" style="margin:0">${ss?'Los ejercicios se alternan por rondas. Series y descanso son los mismos para todo el bloque.':'Cada ejercicio se hace entero antes de pasar al siguiente, con sus propias series y su descanso.'}</p>${ss?`<div class="grid ed">${bf('series','Series del bloque')}${bf('rest','Descanso entre rondas')}</div>`:''}</section>`:'')
+     +g.items.map((it,k)=>{const i=g.start+k;return `<article class="card ed"><div class="grid">${f(it,'block','Bloque',1)}${f(it,'name','Ejercicio',1)}${ss?'':f(it,'series','Series')}${f(it,'reps','Repeticiones')}${f(it,'kg','Carga')}${ss?'':f(it,'rest','Descanso')}${f(it,'video','Enlace del vídeo',1)}</div><div class="tools"><button class="btn sec" data-act="up" data-i="${i}">Subir</button><button class="btn sec" data-act="down" data-i="${i}">Bajar</button><button class="btn warn" data-act="del" data-i="${i}">Quitar</button></div></article>`}).join('')}).join('')
    +`<button class="btn sec" data-act="addex" style="width:100%;padding:14px">+ Añadir ejercicio</button></main><div class="coach"><span>${esc(edit.label)}</span><button class="btn sec" data-act="canceled">Cancelar</button><button class="btn" data-act="saveed" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar'}</button>${S.err?`<div class="msg" role="alert">${esc(S.err)}</div>`:''}</div>`;
 }
 
@@ -409,6 +420,7 @@ async function act(a,t){
     const wk=m.weeks[S.w],day=wk.days[S.d];
     if(a==='addex')day.items.push({id:uid(),block:((day.items[day.items.length-1]||{}).block)||'',cat:'',name:'Nuevo ejercicio',series:'3',reps:'10',kg:'',rest:'',video:''});
     else if(a==='del')day.items.splice(+t.dataset.i,1);
+    else if(a==='bmode'){const g=groupsOf(day.items).find(x=>x.start===+t.dataset.i);if(g){if(t.dataset.m==='ss')syncSS(g);else g.items.forEach(it=>it.ss=false)}}
     else if(a==='up'||a==='down'){const i=+t.dataset.i,j=a==='up'?i-1:i+1;if(day.items[j])[day.items[i],day.items[j]]=[day.items[j],day.items[i]]}
     else if(a==='addday'){wk.days.push({name:'Día '+(wk.days.length+1),items:[]});S.d=wk.days.length-1}
     else if(a==='delday'){wk.days.splice(S.d,1);S.d=0}
@@ -434,6 +446,8 @@ async function parsePlan(buf){
     return v===undefined?'':v;
   };
   const txt=(r,c)=>{const v=raw(r,c);return typeof v==='number'?String(Math.round(v*100)/100):String(v).trim()};
+  // Superserie en el Excel: series y descanso en una casilla combinada para todo el bloque
+  const merged=(r,c)=>sh.merges.some(m=>m.r2>m.r1&&r>=m.r1&&r<=m.r2&&c>=m.c1&&c<=m.c2);
   const starts=[];
   for(let r=0;r<=sh.maxR;r++)if(/^semana\s*\d+/i.test(txt(r,1)))starts.push(r);
   const weeks=[],noVideo=new Set();let total=0;
@@ -451,9 +465,11 @@ async function parsePlan(buf){
         if(!name||name==='Ejercicio'||/bloque/i.test(txt(r,dc)))continue;
         const video=vids[name.toLowerCase()]||(lib.find(x=>x.name===name)||{}).video||'';
         if(!video)noVideo.add(name);
-        day.items.push({id:uid(),block,cat:txt(r,dc+1),name,series:txt(r,dc+4),reps:txt(r,dc+5),kg:txt(r,dc+6),rest:txt(r,dc+8),video});
+        day.items.push({id:uid(),block,cat:txt(r,dc+1),name,series:txt(r,dc+4),reps:txt(r,dc+5),kg:txt(r,dc+6),rest:txt(r,dc+8),video,_m:merged(r,dc+4)||merged(r,dc+8)});
         total++;
       }
+      groupsOf(day.items).forEach(g=>{if(!g.block)return;const ss=g.items.length>1&&g.items.every(it=>it._m);if(ss)syncSS(g);else g.items.forEach(it=>it.ss=false)});
+      day.items.forEach(it=>delete it._m);
       if(day.items.length)wk.days.push(day);
     });
     if(wk.days.length)weeks.push(wk);
@@ -525,6 +541,7 @@ document.addEventListener('input',e=>{
     if(t.dataset.wf){wk.name=t.value;return}
     if(t.dataset.df){wk.days[S.d].name=t.value;return}
     if(t.dataset.f){const it=wk.days[S.d].items.find(x=>x.id===t.dataset.id);if(it)it[t.dataset.f]=t.value;return}
+    if(t.dataset.bf){const g=groupsOf(wk.days[S.d].items).find(x=>x.start===+t.dataset.i);if(g)g.items.forEach(it=>it[t.dataset.bf]=t.value);return}
   }
   if(t.dataset.fld&&routine){const it=findEx(t.dataset.ex);dget(it)[+t.dataset.i][t.dataset.fld]=t.value;saveDraft()}
 });
