@@ -368,7 +368,7 @@ async function act(a,t){
   if(a==='cancelpw'){S.chpw=false;S.err='';await enter();return}
   if(a==='forgot'){S.forgot=true;S.err='';S.info='';render();return}
   if(a==='backlogin'){S.forgot=false;S.err='';S.info='';render();return}
-  if(a==='tog'){clearRo(t);const it=findEx(t.dataset.ex);const s=dget(it)[+t.dataset.i];s.done=!s.done;saveDraft();if(s.done&&restSecs(it.rest)){startRest(restSecs(it.rest));return}render();return}
+  if(a==='tog'){clearRo(t);const it=findEx(t.dataset.ex);const s=dget(it)[+t.dataset.i];s.done=!s.done;saveDraft();bexNext(t);if(s.done&&restSecs(it.rest)){startRest(restSecs(it.rest));return}render();return}
   if(a==='rest'){restTimer?stopRest():startRest(60);return}
   if(a==='restadd'){if(restTimer){restTimer.end+=15000;render()}return}
   if(a==='restskip'){stopRest();return}
@@ -545,7 +545,16 @@ document.addEventListener('input',e=>{
   }
   if(t.dataset.fld&&routine){const it=findEx(t.dataset.ex);dget(it)[+t.dataset.i][t.dataset.fld]=t.value;saveDraft()}
 });
-function clearRo(t){const d=t.closest&&t.closest('details[data-b]');if(d)Object.keys(S.ro).forEach(k=>{if(k.indexOf(d.dataset.b)===0)delete S.ro[k]})}
+// Superserie: al completar una serie se queda abierta y la siguiente no se abre sola.
+// Series normales: se cierra el ejercicio hecho y se abre el siguiente.
+function clearRo(t){const d=t.closest&&t.closest('details[data-b]');if(!d)return;
+  if(d.classList.contains('round')){document.querySelectorAll('details.round').forEach(x=>{if(x.dataset.b===d.dataset.b)S.ro[x.dataset.k]=x.open});return}
+  Object.keys(S.ro).forEach(k=>{if(k.indexOf(d.dataset.b)===0)delete S.ro[k]})}
+// Series normales: el ejercicio sigue abierto hasta completarlo; entonces se cierra y se abre el siguiente sin terminar.
+function bexNext(t){const d=t.closest&&t.closest('details.bex');if(!d)return;const exOf=x=>{const q=x.querySelector('[data-ex]');return q&&findEx(q.dataset.ex)},it=exOf(d);if(!it)return;
+  if(!dget(it).every(s=>s.done)){S.ro[d.dataset.k]=true;return}
+  S.ro[d.dataset.k]=false;const bs=[...d.parentElement.querySelectorAll('details.bex')],nx=bs.slice(bs.indexOf(d)+1).find(x=>{const e=exOf(x);return e&&dget(e).some(s=>!s.done)});
+  if(nx)S.ro[nx.dataset.k]=true}
 function autoNext(t){
   const it=findEx(t.dataset.ex);if(!it)return;const i=+t.dataset.i,st=dget(it)[i];
   const lk=((lastSets(it)||[])[i]||{}).kg,hasKg=!!st.kg||/^\d/.test(lk||'')||/^\d/.test(it.kg||'');
@@ -553,13 +562,14 @@ function autoNext(t){
   if(!st.reps||st.done||!(hasKg||noLoad))return;
   st.done=true;saveDraft();
   const d=t.closest('details[data-b]');
-  if(d)Object.keys(S.ro).forEach(k=>{if(k.indexOf(d.dataset.b)===0)delete S.ro[k]});
-  let rest=0;
+  clearRo(t);bexNext(t);
+  let rest=0,stay=false;
   if(d&&d.classList.contains('round')){const ids=[...new Set([...d.querySelectorAll('[data-ex]')].map(x=>x.dataset.ex))];
-    if(ids.every(id=>{const s=dget(findEx(id))[i];return !s||s.done}))rest=Math.max(0,...ids.map(id=>restSecs(findEx(id).rest)))}
+    if(ids.every(id=>{const s=dget(findEx(id))[i];return !s||s.done})){stay=true;rest=Math.max(0,...ids.map(id=>restSecs(findEx(id).rest)))}}
   else rest=restSecs(it.rest);
   const cur=t.dataset.ex+'|'+i;
   if(rest)startRest(rest);else render();
+  if(stay){document.activeElement&&document.activeElement.blur&&document.activeElement.blur();return}
   setTimeout(()=>{
     const all=[...document.querySelectorAll('input[data-fld=kg]')].filter(x=>x.offsetParent!==null&&!(dget(findEx(x.dataset.ex))[+x.dataset.i]||{}).done);
     const at=[...document.querySelectorAll('input[data-fld=kg]')].findIndex(x=>x.dataset.ex+'|'+x.dataset.i===cur);
