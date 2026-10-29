@@ -382,3 +382,93 @@ div.dnote{cursor:default}
 .wed article.card.ed .grid .full{grid-column:auto}
 .wed article.card.ed .grid .full:has([data-f=video]){grid-column:1/3}
 .wed article.card.ed .grid .full:has([data-f=tips]){grid-column:3/-1}
+
+/* pestaña Ejercicios del entrenador (base de ejercicios): móvil en una columna; en el Mac, filtros en la columna negra */
+.seg:has(>button:nth-child(4)){gap:16px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.seg:has(>button:nth-child(4)) button{flex:none;font-size:15px}
+.xm{gap:12px}
+.xst{display:flex;flex-wrap:wrap;gap:6px 16px;font:500 12.5px var(--mono);color:var(--muted);padding-bottom:10px;border-bottom:4px solid #FFD400}
+.xst b{color:var(--ink);font-weight:500}
+.xacts{display:flex;flex-wrap:wrap;gap:8px}
+.xacts .btn{padding:9px 13px;font-size:14px;cursor:pointer}
+.xsr{display:flex;gap:8px;align-items:center}.xsr .sin{margin:0;flex:1;min-width:0}.xsr .btn{flex:none;padding:12px 14px}
+.xfp{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px 14px 12px}
+.xfh{font:400 22px var(--anton);text-transform:uppercase;color:#FFD400;margin:0 0 4px}
+.xfp .xfh{display:none}
+.xfs{border-bottom:1px solid var(--line)}
+.xft{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--ink);padding:12px 0;cursor:pointer;text-align:left}
+.xft b{font:700 14px var(--display);text-transform:uppercase;letter-spacing:.1em}
+.xft small{margin-left:auto;font:500 11.5px var(--mono);color:var(--muted)}
+.xcv{flex:none;transition:transform .15s}
+[aria-expanded=false]>.xcv{transform:rotate(-90deg)}
+.xfl{display:flex;gap:14px;margin:-4px 0 4px}
+.xfin{padding-bottom:10px}
+.xlk{border:0;background:none;color:var(--azul,#1E4FD8);font:600 14px var(--body);padding:4px 0;cursor:pointer;text-align:left}
+.xck{display:flex;align-items:center;gap:9px;padding:6px 0;font:600 15px var(--body);color:var(--ink);cursor:pointer;min-width:0}
+.xck input{width:18px;height:18px;margin:0;flex:none;accent-color:#1E4FD8}
+.xck em{margin-left:auto;font:500 11.5px var(--mono);font-style:normal;color:var(--muted)}
+.xgh{display:flex;align-items:center}.xgh .xck{flex:1;font:700 14px var(--display);text-transform:uppercase;letter-spacing:.08em}
+.xgt{border:0;background:none;color:var(--muted);width:36px;height:36px;display:grid;place-items:center;cursor:pointer;border-radius:6px}
+.xsub{margin-left:8px;padding-left:16px;border-left:2px solid var(--line)}
+.xam{display:flex;gap:8px;margin-top:8px}
+.xam input{flex:1;min-width:0;padding:9px 10px;border:1.5px dashed var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:600 14px var(--body)}
+.xam .btn{padding:8px 12px;font-size:13px}
+.xlb{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font:500 12.5px var(--mono);color:var(--muted)}
+.xlb>span:last-child{display:flex;gap:14px}
+#xlist{display:grid;gap:8px}
+.xgn{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;width:100%;border:0;border-bottom:3px solid #FFD400;background:none;color:var(--ink);padding:10px 0 6px;margin-top:6px;text-align:left;cursor:pointer}
+.xgn span{font:400 24px/1 var(--anton);text-transform:uppercase;letter-spacing:.02em}
+.xgn small{font:500 11.5px var(--mono);color:var(--muted)}
+.xgn .xcv{margin-left:auto;align-self:center}
+.xfi{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.xfc{display:flex;align-items:center;gap:10px;width:100%;border:0;background:#0B0B0D;color:#fff;padding:10px 14px;text-align:left;cursor:pointer}
+.xfc span{flex:1;min-width:0;font:400 17px/1.1 var(--anton);text-transform:uppercase;letter-spacing:.02em;overflow-wrap:anywhere}
+.xfc small{font:500 12px var(--mono);color:#9AA1B0}.xfc .xcv{color:#FFD400}
+.xrw{display:flex;align-items:center;gap:10px;width:100%;border:0;border-top:1px solid var(--line);border-left:4px solid transparent;background:none;color:var(--ink);padding:10px 12px 10px 10px;text-align:left;cursor:pointer}
+.xfc+.xrw{border-top:0}
+.xrw:hover,.xrw[aria-current]{background:var(--bg)}.xrw[aria-current]{border-left-color:#FFD400}
+.xrw i{font:500 12px var(--mono);font-style:normal;color:var(--muted);width:20px;flex:none}
+.xt{flex:1;min-width:0}.xt b{display:block;font:600 15px/1.3 var(--body);overflow-wrap:anywhere}.xt small{font:500 11.5px var(--mono);color:var(--muted)}
+.xvb{flex:none;font:500 10.5px var(--mono);text-transform:uppercase;padding:3px 7px;border-radius:4px;white-space:nowrap}
+.xvb.mio{background:#0B0B0D;color:#FFD400}
+.xvb.otro{background:#E6ECFB;color:#1E4FD8}
+.xvb.no{color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.xdt .dbody{margin-top:14px}
+.xvd{display:grid;place-content:center;justify-items:center;gap:8px;aspect-ratio:16/8;max-width:100%;border-radius:12px;background:#0D2A6B;color:#fff;text-decoration:none;font:700 14px var(--display);text-transform:uppercase;letter-spacing:.1em}
+.xvd.no{background:var(--surface);color:var(--muted);border:1.5px dashed var(--line)}
+.xpl{width:48px;height:48px;border-radius:50%;background:#FFD400;display:grid;place-items:center}.xpl svg{width:22px;height:22px;fill:#0B0B0D}
+.xdt .clip{width:100%;border-radius:12px}
+.xdl{margin:0;display:grid}
+.xdl div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.xdl dt{font:700 13px var(--display);text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.xdl dd{margin:0;font:500 14px var(--mono);text-align:right}
+.xform{gap:16px}
+.xfd{display:grid;gap:8px;min-width:0}
+.xfd>span{font:700 13px var(--display);text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.xfd input,.xfd select,.xfd textarea,.xec input,.xec select{width:100%;min-width:0;box-sizing:border-box;padding:11px 12px;border:1.5px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:600 16px var(--body)}
+.xfd textarea{font-weight:400;resize:vertical}
+.xtw{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.xmc{display:flex;flex-wrap:wrap;gap:6px}
+.xmc button{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:7px 11px;font:600 14px var(--body);cursor:pointer}
+.xmc button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.xup{display:grid;justify-items:center;gap:2px;padding:18px 12px;border:1.5px dashed #1E4FD8;border-radius:6px;color:#1E4FD8;cursor:pointer;text-align:center}
+.xup b{font:700 15px var(--display);text-transform:uppercase;letter-spacing:.1em}.xup small{font:500 12px var(--mono);color:var(--muted)}
+.xeg{display:grid;gap:8px;padding:14px 0;border-top:1px solid var(--line)}
+.xeh{display:flex;gap:10px;align-items:center}
+.xbig{flex:1;min-width:0;padding:6px 10px;border:1.5px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:400 22px var(--anton);text-transform:uppercase}
+.xec{display:flex;gap:8px;align-items:center;padding-left:14px}
+.xec input{flex:1}.xec select{flex:none;width:34%}
+.xec em{font:500 12px var(--mono);font-style:normal;color:var(--muted);width:24px;text-align:right;flex:none}
+.xec .btn{flex:none;padding:10px 12px;font-size:13px}
+.xdel{flex:none;border:0;background:none;color:var(--muted);font-size:20px;padding:6px 8px;cursor:pointer}.xdel:disabled{opacity:.3;cursor:not-allowed}
+/* en el Mac: filtros dentro de la columna negra, que hace scroll; sin las franjas de abajo para que no tapen */
+.dside.xs{overflow-y:auto}
+.dside.xs::before,.dside.xs::after{display:none}
+.xflt{--ink:#EEF0F4;--muted:#9AA1B0;--line:#2A2C33;--surface:#15161A;--bg:#1C1D22;--azul:#8FB0FF;color:var(--ink);position:relative;z-index:1;border-top:1px solid #2A2C33;padding-top:12px}
+.xflt .xck input{accent-color:#8FB0FF}
+.xflt .btn.sec{background:#26282F;color:#EEF0F4}
+.dlist #xlist{gap:6px}
+.dlist .xgn span{font-size:20px}
+.dlist .xacts .btn{padding:8px 10px;font-size:13px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .xm{--azul:#8FB0FF}:root:not([data-theme="light"]) .xvb.otro{background:#18234A;color:#8FB0FF}:root:not([data-theme="light"]) .xup{border-color:#8FB0FF;color:#8FB0FF}}
+:root[data-theme="dark"] .xm,:root[data-theme="dark"] .dmain{--azul:#8FB0FF}:root[data-theme="dark"] .xvb.otro{background:#18234A;color:#8FB0FF}:root[data-theme="dark"] .xup{border-color:#8FB0FF;color:#8FB0FF}

@@ -12,10 +12,10 @@ Página estática sin build: GitHub Pages sirve los ficheros tal cual. Backend: 
 
 | Fichero | Qué hay |
 | --- | --- |
-| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`. Lleva `?v=36` para saltarse la caché: súbelo en los tres ficheros al publicar cambios de CSS/JS. |
+| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`. Lleva `?v=37` para saltarse la caché: súbelo en los tres ficheros al publicar cambios de CSS/JS. |
 | `config.js` | URL y clave **anon** de Supabase (pública por diseño; los permisos los dan las políticas RLS). Nunca pongas aquí la clave `service_role`. |
-| `app.js` | Toda la app (~620 líneas). Ver abajo. |
-| `style.css` | Estilos. Bloques: "barra superior", "semanas y días", "progreso y mapa de bloques", "bloque de superserie", "barra fija de sesión", "botones y formularios", "panel del entrenador", "editor del entrenador", "marca Marcos Bustamante", "series desplegables", "tipo de bloque", "formulario añadir cliente", "vista de escritorio del entrenador (Mac)". Tema oscuro en `:root[data-theme="dark"]`. |
+| `app.js` | Toda la app (~950 líneas). Ver abajo. |
+| `style.css` | Estilos. Bloques: "barra superior", "semanas y días", "progreso y mapa de bloques", "bloque de superserie", "barra fija de sesión", "botones y formularios", "panel del entrenador", "editor del entrenador", "marca Marcos Bustamante", "series desplegables", "tipo de bloque", "formulario añadir cliente", "vista de escritorio del entrenador (Mac)", "pestaña Ejercicios". Tema oscuro en `:root[data-theme="dark"]`. |
 | `xlsx-lite.js` | Lector mínimo de .xlsx/.xlsm sin dependencias (lo usa la importación de Excel). |
 
 ## app.js por secciones
@@ -26,8 +26,9 @@ Cabeceras `/* ---------- X ---------- */`:
 - **"piezas comunes"**: `topbar`, `nav` (semanas y días), `facts`, `normNav`. Nombre del entrenador en `const TRAINER`.
 - **"acceso"**: `loginView`, `setpwView` (invitación y recuperar contraseña), `offlineView`, `welcomeHTML`. Requisitos de contraseña en `const PWR` (8+ caracteres, mayúscula, minúscula, número y símbolo) y comprobación de contraseñas filtradas en `pwned` (Have I Been Pwned por k-anonimato; si el servicio no responde, no bloquea). Deben coincidir con lo configurado en Supabase > Authentication > Passwords.
 - **"cliente"**: `clientRoutine` (pantalla principal de entrenamiento), `groupsOf`/`isSS`/`syncSS` (superseries), `dget` (borrador de series), `lastSets`/`lastFor` ("Última vez"), descanso (`startRest`, `restBar`), `chatHTML`, `sessionHTML` (historial), `clientView`.
-- **"entrenador"**: `coachView` (pestañas Clientes / Actividad / Plantilla), `inviteHTML` (botón «+ Añadir cliente» y formulario `fInvite`, estado `S.inv`), `feedHTML`, `msgsHTML`, `newHTML`, `previewView`, `editorView`, `importCard`.
-- **"vista de escritorio (Mac)"**: a partir de 1024 px de ancho (`wide()`), `coachView` llama a `deskView`: menú lateral (Clientes / Actividad › Chats y Sesiones / Plantilla, subapartado en `S.sub`), lista en el centro y detalle a la derecha. `chatsHTML` (chats estilo WhatsApp con el número de no leídos, filtro `S.cf`), `fichaHTML` (ficha del cliente sin chat) y `deskHero`. En el Mac los mensajes solo se marcan leídos con el chat abierto (`deskChat`). El editor y la vista previa van a pantalla ancha (`.wrap.wed`). En el móvil no cambia nada.
+- **"entrenador"**: `coachView` (pestañas Clientes / Actividad / Plantilla / Ejercicios), `inviteHTML` (botón «+ Añadir cliente» y formulario `fInvite`, estado `S.inv`), `feedHTML`, `msgsHTML`, `newHTML`, `previewView`, `editorView`, `importCard`.
+- **"vista de escritorio (Mac)"**: a partir de 1024 px de ancho (`wide()`), `coachView` llama a `deskView`: menú lateral (Clientes / Actividad › Chats y Sesiones / Plantilla / Ejercicios, subapartado en `S.sub`), lista en el centro y detalle a la derecha. `chatsHTML` (chats estilo WhatsApp con el número de no leídos, filtro `S.cf`), `fichaHTML` (ficha del cliente sin chat) y `deskHero`. En el Mac los mensajes solo se marcan leídos con el chat abierto (`deskChat`). El editor y la vista previa van a pantalla ancha (`.wrap.wed`). En el móvil no cambia nada.
+- **"base de ejercicios"**: pestaña Ejercicios del entrenador (estado en `S.x`, prefijo `x` en funciones y en `data-x` de los botones). Lista plegable por categoría general › categoría (`xListHTML`), filtros plegables de categoría, material que tengo y vídeo (`xFiltersHTML`; en el Mac van en la columna negra), ficha (`xDetHTML`), edición y alta (`xStartEdit`, `xEditHTML`, `xsave`), editor de categorías (`xCatsHTML`), subida de vídeo propio (`xupload`) y «Cargar Excel» (`xImport`: hojas BASE_EJERCICIOSVIDEOS y LISTAS). Clics en `xact`, cambios en `xchange`. Todo se guarda con `saveLib`.
 - **"render"**: `render()` repinta todo desde el estado `S` (no hay framework).
 - **"acciones"**: `act(a,t)` gestiona cada botón según su `data-act` (guardar sesión `savesession`, editor `saveed`, chat `chatsend`...).
 - **"importar Excel (hoja Plan_SS1)"**: `parsePlan`, `importForClient`, `importXlsx`.
@@ -40,12 +41,13 @@ Tablas que usa la app:
 
 - `profiles`: id, email, name, role (`client` / `admin`), avatar_url.
 - `routines`: client_id, title, data = `{weeks:[{name, days:[{name, items:[ejercicio]}]}]}`, updated_at.
-- `templates`: id `base` (plantilla, mismo formato que una rutina) e id `lib` (`{items:[{name}]}`, autocompletado de ejercicios).
+- `templates`: id `base` (plantilla, mismo formato que una rutina) e id `lib`, la base de ejercicios: `{items:[{name,cat,mat,prog,video,vs,tips}], gens:[{name,cats}], mats, have}`. `items` también alimenta el autocompletado del editor de rutinas; `gens` son las categorías generales; `mats` material añadido a mano; `have` material que tiene el entrenador (null = todo); `vs` = `mio`/`otro`.
 - `sessions`: client_id, week, day, wname, dname, performed_at, feeling (1-5, solo sesiones antiguas: ya no se rellena), notes, items (ejercicios con `sets:[{kg,reps,done}]`).
 - `session_effort`: session_id, client_id, effort (1-10). Privada: el cliente solo puede insertar el suyo; solo el entrenador (`is_admin()`) puede leer. La carga `loadEfforts`.
 - `session_comments`: session_id, author_id, body, created_at.
 - `session_seen`: session_id, seen_at. Sesiones que el entrenador ya revisó en Actividad ("Ya lo vi" o al abrirlas). Solo el entrenador (`is_admin()`). La cargan `loadSeen`/`markSeen`; vuelve a salir como "Por responder" solo si el cliente comenta después de `seen_at`. SQL en `supabase/session_seen.sql`.
 - `messages`: client_id, author_id, body, kind (`bien`/`duro`/`molestia`/`duda`), ex_name, ctx, read_at.
+- Storage: almacén público `videos` para los vídeos propios de los ejercicios (solo el entrenador sube o borra). SQL en `supabase/videos.sql`.
 - RPC: `mark_read`, `set_name`, `set_avatar`.
 - Edge Function `invitar-cliente` (`supabase/functions/invitar-cliente/index.ts`): comprueba que quien llama es admin y envía la invitación por correo con la clave service_role (solo en el servidor). Si la cambias, vuelve a desplegarla en Supabase.
 

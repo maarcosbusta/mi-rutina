@@ -84,6 +84,7 @@ async function loadCoach(){
   clients=c.data||[];assigned=new Set((r.data||[]).map(x=>x.client_id));
   const base=(t.data||[]).find(x=>x.id==='base'),lb=(t.data||[]).find(x=>x.id==='lib');
   tpl=base?base.data:null;lib=lb?(lb.data.items||[]):[];
+  xlib={gens:lb&&lb.data.gens||[],mats:lb&&lb.data.mats||[],have:lb&&lb.data.have||null};
   const f=await sb.from('sessions').select('id,client_id,dname,wname,performed_at,feeling,notes,items').order('performed_at',{ascending:false}).limit(40);
   feed=(f.data||[]).map(x=>({...x,date:x.performed_at}));
   await loadSeen();
@@ -336,10 +337,13 @@ function coachView(){
   if(S.prevOn&&routine)return previewView();
   if(edit)return editorView();
   if(wide())return deskView();
-  const tabs=`<div class="seg"><button data-tab="clientes" aria-pressed="${S.tab==='clientes'}">Clientes</button><button data-tab="actividad" aria-pressed="${S.tab==='actividad'}">Actividad${actN()?` <span class="dot2">${actN()}</span>`:''}</button><button data-tab="plantilla" aria-pressed="${S.tab==='plantilla'}">Plantilla</button></div>`;
+  const tabs=`<div class="seg"><button data-tab="clientes" aria-pressed="${S.tab==='clientes'}">Clientes</button><button data-tab="actividad" aria-pressed="${S.tab==='actividad'}">Actividad${actN()?` <span class="dot2">${actN()}</span>`:''}</button><button data-tab="plantilla" aria-pressed="${S.tab==='plantilla'}">Plantilla</button><button data-tab="ejercicios" aria-pressed="${S.tab==='ejercicios'}">Ejercicios</button></div>`;
   let body='';
   const sel=clients.find(c=>c.id===selClient);
-  if(S.tab==='plantilla'){
+  if(S.tab==='ejercicios'){
+    const X=S.x;
+    body=`<main class="panel xm">${X.view==='list'?xHeadHTML()+`<div class="xsr"><input id="xq" class="sin" type="search" placeholder="Buscar ejercicio" value="${esc(X.q)}" autocomplete="off"><button class="btn sec" data-x="fopen" aria-expanded="${X.fopen}">Filtros${xnAct()?` <span class="dot2">${xnAct()}</span>`:''}</button></div>${X.fopen?`<div class="xfp">${xFiltersHTML()}</div>`:''}<div id="xlist">${xListHTML()}</div>`:xMainHTML()}</main>`;
+  }else if(S.tab==='plantilla'){
     body=`<main class="panel"><h2>Plantilla base</h2><p class="hint">Es la rutina que se copia a un cliente nuevo. Cambiarla no modifica las rutinas ya asignadas.</p>${tpl?`<button class="btn big" data-act="edittpl">Editar plantilla</button>`:'<div class="empty">Aún no hay plantilla base.</div><button class="btn big" data-act="newtpl">Crear plantilla vacía</button>'}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}</main>`;
   }else if(sel){
     const has=assigned.has(sel.id);
@@ -401,9 +405,14 @@ function deskView(){
   const nc=clients.reduce((k,c)=>k+unreadIn(c.id).length,0),na=actN(),ns=Math.max(0,na-nc);
   const sel=clients.find(c=>c.id===selClient);
   const b=n=>n?`<span class="dot2">${n}</span>`:'';
-  const nav=`<div class="dnav"><button data-tab="clientes" aria-pressed="${S.tab==='clientes'}">Clientes</button><button data-tab="actividad" aria-pressed="${S.tab==='actividad'}">Actividad${b(na)}</button>${S.tab==='actividad'?`<div class="dsub"><button data-act="sub" data-k="chats" aria-pressed="${S.sub==='chats'}">Chats${b(nc)}</button><button data-act="sub" data-k="ses" aria-pressed="${S.sub!=='chats'}">Sesiones${b(ns)}</button></div>`:''}<button data-tab="plantilla" aria-pressed="${S.tab==='plantilla'}">Plantilla</button></div>`;
-  const side=`<aside class="dside">${topbar()}${nav}</aside>`;
+  const nav=`<div class="dnav"><button data-tab="clientes" aria-pressed="${S.tab==='clientes'}">Clientes</button><button data-tab="actividad" aria-pressed="${S.tab==='actividad'}">Actividad${b(na)}</button>${S.tab==='actividad'?`<div class="dsub"><button data-act="sub" data-k="chats" aria-pressed="${S.sub==='chats'}">Chats${b(nc)}</button><button data-act="sub" data-k="ses" aria-pressed="${S.sub!=='chats'}">Sesiones${b(ns)}</button></div>`:''}<button data-tab="plantilla" aria-pressed="${S.tab==='plantilla'}">Plantilla</button><button data-tab="ejercicios" aria-pressed="${S.tab==='ejercicios'}">Ejercicios</button></div>`;
   const pick=t=>`<div class="empty">${t}</div>`;
+  // Ejercicios: filtros en la columna negra, lista en el centro y ficha a la derecha
+  if(S.tab==='ejercicios'){
+    const X=S.x;
+    return `<div class="desk"><aside class="dside xs">${topbar()}${nav}<div class="xflt">${xFiltersHTML()}</div></aside><section class="dlist">${xHeadHTML()}<input id="xq" class="sin" type="search" placeholder="Buscar ejercicio" value="${esc(X.q)}" autocomplete="off"><div id="xlist">${xListHTML()}</div></section><section class="dmain">${X.view==='list'?pick('Elige un ejercicio de la lista.'):xMainHTML()}</section></div>`;
+  }
+  const side=`<aside class="dside">${topbar()}${nav}</aside>`;
   let list='',main='';
   if(S.tab==='plantilla'){
     main=`<main class="panel"><h2>Plantilla base</h2><p class="hint">Es la rutina que se copia a un cliente nuevo. Cambiarla no modifica las rutinas ya asignadas.</p>${tpl?`<button class="btn big" data-act="edittpl">Editar plantilla</button>`:'<div class="empty">Aún no hay plantilla base.</div><button class="btn big" data-act="newtpl">Crear plantilla vacía</button>'}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}</main>`;
@@ -423,6 +432,193 @@ function deskView(){
   return `<div class="desk">${side}<section class="dlist">${list}</section><section class="dmain">${main}</section></div>`;
 }
 
+/* ---------- base de ejercicios (pestaña Ejercicios del entrenador) ---------- */
+// Se guarda en templates id 'lib': {items:[{name,cat,mat,prog,video,vs,tips}], gens:[{name,cats}], mats, have}.
+// items es la misma lista que usa el autocompletado del editor de rutinas.
+let xlib={gens:[],mats:[],have:null};
+S.x={q:'',cats:new Set(),vids:new Set(),og:new Set(),oc:new Set(),fo:new Set(),fg:new Set(),fopen:false,view:'list',sel:null,ed:null,msg:'',err:'',busy:false};
+const XVS={mio:'Vídeo mío',otro:'Vídeo de otro',no:'Sin vídeo'};
+const XCV='<svg class="xcv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+const az=(a,b)=>String(a).localeCompare(String(b),'es');
+const pad2=n=>String(n).padStart(2,'0');
+const xnice=c=>String(c||'').replace(/_/g,' ');
+const xnorm=s=>xnice(s).toLowerCase().replace(/\s+/g,' ').trim();
+const xvs=it=>it.video?(it.vs==='mio'?'mio':'otro'):'no';
+const xmats=it=>String(it.mat||'').split(',').map(s=>s.trim()).filter(Boolean);
+const xallMats=()=>[...new Set([...xlib.mats,...lib.flatMap(xmats)])].sort(az);
+const xhas=m=>!xlib.have||xlib.have.includes(m);
+const xcats=()=>[...new Set([...xlib.gens.flatMap(g=>g.cats),...lib.map(i=>i.cat).filter(Boolean)])];
+const xgenOf=c=>xlib.gens.find(g=>g.cats.includes(c));
+const xgi=c=>{const i=xlib.gens.findIndex(g=>g.cats.includes(c));return i<0?'none':String(i)};
+const xloose=()=>xcats().filter(c=>!xgenOf(c)).sort(az);
+const xgroups=()=>[...xlib.gens.map((g,i)=>({key:String(i),name:g.name,cats:g.cats})),...(xloose().length?[{key:'none',name:'Sin categoría general',cats:xloose()}]:[])];
+const xcnt=c=>lib.filter(i=>i.cat===c).length;
+const xtaken=v=>xcats().some(c=>xnorm(c)===xnorm(v));
+const xnAct=()=>S.x.cats.size+S.x.vids.size+(xlib.have?1:0);
+// Un ejercicio sale si es de lo marcado y tienes TODO su material
+function xfiltered(){const X=S.x,q=X.q.trim().toLowerCase();
+  return lib.map((it,i)=>({it,i})).filter(({it})=>(!X.cats.size||X.cats.has(it.cat))&&(!X.vids.size||X.vids.has(xvs(it)))&&xmats(it).every(xhas)&&(!q||(it.name+' '+(it.mat||'')).toLowerCase().includes(q)))}
+async function saveLib(){
+  S.x.busy=true;const {error}=await sb.from('templates').upsert({id:'lib',data:{items:lib,gens:xlib.gens,mats:xlib.mats,have:xlib.have}});S.x.busy=false;
+  if(error){S.x.err=werr(error);render();return false}S.x.err='';return true}
+function xHeadHTML(){const n=lib.filter(i=>!i.video).length;
+  return `<div class="dhd"><h2>Ejercicios</h2></div><div class="xst"><span><b>${lib.length}</b> ejercicios</span><span><b>${xlib.gens.length}</b> generales</span><span><b>${n}</b> sin vídeo</span></div><div class="xacts"><button class="btn" data-x="new">+ Nuevo</button><button class="btn sec" data-x="cats">Categorías</button><label class="btn sec" for="xxls">${S.x.imp==='busy'?'Leyendo…':'Cargar Excel'}</label><input type="file" id="xxls" accept=".xlsm,.xlsx" hidden></div>${S.x.err?`<div class="err" role="alert">${esc(S.x.err)}</div>`:''}${S.x.impMsg?`<div class="ok" role="status">${esc(S.x.impMsg)}</div>`:''}`}
+const xck=(f,v,l,on,n,ind)=>`<label class="xck"><input type="checkbox" data-xf="${f}" value="${esc(v)}" ${on?'checked':''} ${ind?'data-ind':''}>${esc(l)}${n!=null?`<em>${n}</em>`:''}</label>`;
+const xsec=(k,t,sum,links,inner)=>{const o=S.x.fo.has(k);return `<div class="xfs"><button class="xft" data-x="tf" data-k="${k}" aria-expanded="${o}">${XCV}<b>${t}</b><small>${sum}</small></button>${o?`${links?`<div class="xfl">${links}</div>`:''}<div class="xfin">${inner}</div>`:''}</div>`};
+function xFiltersHTML(){
+  const X=S.x,ms=xallMats(),nh=ms.filter(xhas).length;
+  return `<div class="xfh">Filtros</div>`
+  +xsec('cat','Categoría',X.cats.size?`${X.cats.size} marc.`:'Todas',`${X.cats.size?'<button class="xlk" data-x="clrcat">Quitar</button>':''}<button class="xlk" data-x="cats">Editar</button>`,
+    xgroups().map(g=>{const s=g.cats.filter(c=>X.cats.has(c)).length,all=g.cats.length>0&&s===g.cats.length,o=X.fg.has(g.key);
+      return `<div class="xgh">${xck('gen',g.key,xnice(g.name),all,null,s&&!all)}<button class="xgt" data-x="tfg" data-k="${g.key}" aria-expanded="${o}" aria-label="Ver categorías de ${esc(xnice(g.name))}">${XCV}</button></div>${o?`<div class="xsub">${g.cats.map(c=>xck('cat',c,xnice(c),X.cats.has(c),xcnt(c))).join('')}</div>`:''}`}).join('')||'<p class="hint">Aún no hay categorías.</p>')
+  +xsec('mat','Material que tengo',xlib.have?`${nh}/${ms.length}`:'Todo','<button class="xlk" data-x="allmat">Todo</button><button class="xlk" data-x="nomat">Nada</button>',
+    `<p class="hint">Solo salen los ejercicios que puedes hacer con lo marcado.</p>${ms.map(m=>xck('mat',m,m,xhas(m))).join('')}<div class="xam"><input id="xnm" placeholder="Añadir material" autocomplete="off"><button class="btn sec" data-x="addmat">Añadir</button></div>`)
+  +xsec('vid','Vídeo',X.vids.size?`${X.vids.size} marc.`:'Todos','',Object.keys(XVS).map(v=>xck('vid',v,XVS[v],X.vids.has(v),lib.filter(i=>xvs(i)===v).length)).join(''))
+  +(xnAct()?'<button class="xlk" data-x="clrall" style="margin-top:10px">Quitar todos los filtros</button>':'');
+}
+function xListHTML(){
+  const X=S.x,f=xfiltered(),force=!!X.q.trim();
+  const body=xgroups().map(g=>{const cs=g.cats.map(c=>[c,f.filter(x=>x.it.cat===c)]).filter(x=>x[1].length);if(!cs.length)return '';
+    const go=force||X.og.has(g.key),tot=cs.reduce((a,x)=>a+x[1].length,0);
+    return `<button class="xgn" data-x="tg" data-t="gen" data-k="${g.key}" aria-expanded="${go}"><span>${esc(xnice(g.name))}</span><small>${tot} ejercicios · ${cs.length} cat.</small>${XCV}</button>`
+    +(go?cs.map(([c,xs])=>{const co=force||X.oc.has(c);return `<div class="xfi"><button class="xfc" data-x="tg" data-t="cat" data-k="${esc(c)}" aria-expanded="${co}"><span>${esc(xnice(c))}</span><small>${pad2(xs.length)}</small>${XCV}</button>${co?xs.map(({it,i},n)=>`<button class="xrw" data-x="row" data-i="${i}"${X.sel===i&&X.view!=='list'?' aria-current="true"':''}><i>${pad2(n+1)}</i><span class="xt"><b>${esc(it.name)}</b><small>${esc(it.mat||'—')}${it.prog!=null&&it.prog!==''?` · nivel ${esc(it.prog)}`:''}</small></span><span class="xvb ${xvs(it)}">${XVS[xvs(it)].replace('Vídeo ','')}</span></button>`).join(''):''}</div>`}).join(''):'')}).join('');
+  return body?`<div class="xlb"><span>${f.length} ejercicios</span><span><button class="xlk" data-x="openall">Desplegar todo</button><button class="xlk" data-x="closeall">Plegar todo</button></span></div>${body}`:'<div class="empty">Ningún ejercicio cumple los filtros.</div>';
+}
+function xMainHTML(){const X=S.x;return `<button class="back" data-x="back">← Volver a la lista</button>`+(X.view==='edit'?xEditHTML():X.view==='cats'?xCatsHTML():xDetHTML(lib[X.sel]))}
+function xDetHTML(it){
+  if(!it)return '<div class="empty">Ese ejercicio ya no existe.</div>';
+  const g=xgenOf(it.cat),p=it.prog!=null&&it.prog!==''?it.prog:'';
+  const vid=!it.video?`<div class="xvd no">Falta vídeo<button class="btn" data-x="editvid">+ Añadir vídeo</button></div>`:isFile(it.video)?clipHTML(it):`<a class="xvd" href="${esc(it.video)}" target="_blank" rel="noopener"><span class="xpl">${PLAY}</span>Ver vídeo</a>`;
+  return `<article class="xdt"><div class="dhero"><div class="dht"><small>// ${esc(xnice(g?g.name:'Sin general').toUpperCase())} › ${esc(xnice(it.cat).toUpperCase())}</small><h2>${esc(it.name)}</h2></div><div class="dacts"><button class="btn" data-x="edit">Editar</button></div></div><div class="dbody">
+  ${S.x.msg?`<div class="ok" role="status">${esc(S.x.msg)}</div>`:''}${vid}${it.video?'<button class="xlk" data-x="editvid" style="justify-self:end">Cambiar vídeo</button>':''}
+  <dl class="xdl"><div><dt>Material</dt><dd>${esc(it.mat||'—')}</dd></div><div><dt>Vídeo</dt><dd><span class="xvb ${xvs(it)}">${XVS[xvs(it)]}</span></dd></div><div><dt>Progresión</dt><dd>${p!==''?'Nivel '+esc(p):'—'}</dd></div></dl>
+  ${tipsHTML(it)||'<div class="dnote">Sin claves técnicas todavía.</div>'}</div></article>`;
+}
+function xStartEdit(i){const it=i!=null?lib[i]:null,own=it&&isFile(it.video);
+  S.x.ed={i,name:it?it.name:'',gen:it?xgi(it.cat):(xlib.gens.length?'0':'none'),cat:it?it.cat:((xlib.gens[0]||{cats:[]}).cats[0]||'__new'),newcat:'',mat:it?xmats(it):[],
+    video:it&&!own?it.video||'':'',file:own?decodeURIComponent(it.video.split('/').pop()):'',url:own?it.video:'',up:'',vmode:own?'file':'link',vs:it&&it.vs==='otro'?'otro':'mio',prog:it&&it.prog!=null?String(it.prog):'',tips:it?it.tips||'':''};
+  S.x.view='edit';S.x.err='';S.x.msg='';}
+function xEditHTML(){
+  const d=S.x.ed,opts=d.gen==='none'?xloose():xlib.gens[+d.gen].cats;
+  return `<article class="xdt"><div class="dhero"><div class="dht"><small>// ${d.i==null?'NUEVO EJERCICIO':'EDITAR EJERCICIO'}</small><h2>${esc(d.name||'Sin nombre')}</h2></div></div><div class="dbody xform">
+  <label class="xfd"><span>Nombre</span><input id="xe-name" data-xe="name" value="${esc(d.name)}" placeholder="Dead bug con goma" autocomplete="off"></label>
+  <div class="xtw"><label class="xfd"><span>Categoría general</span><select data-xe="gen">${xlib.gens.map((g,i)=>`<option value="${i}" ${String(i)===d.gen?'selected':''}>${esc(xnice(g.name))}</option>`).join('')}<option value="none" ${d.gen==='none'?'selected':''}>Sin general</option></select></label>
+  <label class="xfd"><span>Categoría</span><select data-xe="cat">${opts.map(c=>`<option value="${esc(c)}" ${c===d.cat?'selected':''}>${esc(xnice(c))}</option>`).join('')}${d.gen!=='none'?`<option value="__new" ${d.cat==='__new'?'selected':''}>+ Nueva categoría…</option>`:''}</select></label></div>
+  ${d.cat==='__new'?`<label class="xfd"><span>Nombre de la nueva categoría</span><input data-xe="newcat" value="${esc(d.newcat)}" autocomplete="off"></label>`:''}
+  <div class="xfd"><span>Material</span><div class="xmc">${xallMats().map(m=>`<button data-x="em" data-k="${esc(m)}" aria-pressed="${d.mat.includes(m)}">${esc(m)}</button>`).join('')}</div></div>
+  <div class="xfd"><span>Vídeo</span><div class="mode"><button data-x="vm" data-k="link" aria-pressed="${d.vmode==='link'}">Enlace de YouTube</button><button data-x="vm" data-k="file" aria-pressed="${d.vmode==='file'}">Subir archivo</button></div>
+  ${d.vmode==='file'?`<label class="xup" for="xfile">${d.up==='busy'?'Subiendo vídeo…':d.file?`<b>${esc(d.file)}</b><small>Toca para cambiarlo</small>`:'<b>Elegir vídeo</b><small>.mp4, .mov o .webm · máximo 50 MB</small>'}</label><input type="file" id="xfile" accept="video/mp4,video/quicktime,video/webm" hidden><p class="hint" style="margin:0">Se guarda como vídeo tuyo y tus clientes lo ven dentro de la app.</p>`
+  :`<input id="xe-video" data-xe="video" value="${esc(d.video)}" placeholder="https://youtube.com/shorts/…" inputmode="url" autocomplete="off"><div class="mode"><button data-x="vsel" data-k="mio" aria-pressed="${d.vs==='mio'}">Es mío</button><button data-x="vsel" data-k="otro" aria-pressed="${d.vs==='otro'}">De otro</button></div>`}
+  ${d.video||d.url?'<button class="xlk" data-x="clrvid" style="justify-self:start">Quitar vídeo</button>':''}</div>
+  <label class="xfd"><span>Progresión</span><select data-xe="prog"><option value="">Sin nivel</option>${[-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${String(n)===d.prog?'selected':''}>Nivel ${n>0?'+':''}${n}</option>`).join('')}</select></label>
+  <label class="xfd"><span>Claves técnicas</span><textarea data-xe="tips" rows="3" placeholder="Lumbar pegada al suelo; Exhala al bajar">${esc(d.tips)}</textarea></label>
+  ${S.x.err?`<div class="err" role="alert">${esc(S.x.err)}</div>`:''}
+  <div class="tools"><button class="btn" data-x="save" ${S.x.busy?'disabled':''}>${S.x.busy?'Guardando…':'Guardar'}</button><button class="btn sec" data-x="back">Cancelar</button></div></div></article>`;
+}
+function xCatsHTML(){
+  return `<article class="xdt"><div class="dhero"><div class="dht"><small>// ORGANIZAR</small><h2>Categorías</h2></div></div><div class="dbody"><p class="hint" style="margin:0">Escribe encima para cambiar un nombre. Con el desplegable mueves una categoría a otra general. Solo se puede borrar una categoría vacía.</p>${S.x.err?`<div class="err" role="alert">${esc(S.x.err)}</div>`:''}
+  ${xgroups().map(g=>`<div class="xeg"><div class="xeh">${g.key==='none'?'<b class="dh3" style="margin:0">Sin categoría general</b>':`<input class="xbig" data-xrg="${g.key}" value="${esc(xnice(g.name))}" aria-label="Nombre de la categoría general"><button class="xlk" data-x="delgen" data-k="${g.key}">Borrar</button>`}</div>
+  ${g.cats.map(c=>`<div class="xec"><input data-xrc="${esc(c)}" value="${esc(xnice(c))}" aria-label="Nombre de la categoría"><em>${xcnt(c)}</em><select data-xmv="${esc(c)}" aria-label="Mover a otra general">${xlib.gens.map((x,i)=>`<option value="${i}" ${xgenOf(c)===x?'selected':''}>${esc(xnice(x.name))}</option>`).join('')}${g.key==='none'?'<option value="none" selected>Sin general</option>':''}</select><button class="xdel" data-x="delcat" data-k="${esc(c)}" aria-label="Borrar ${esc(xnice(c))}" ${xcnt(c)?'disabled title="Tiene ejercicios: muévelos antes de borrarla"':''}>×</button></div>`).join('')}
+  ${g.key!=='none'?`<div class="xec"><input id="xnc${g.key}" placeholder="Nueva categoría en ${esc(xnice(g.name))}" autocomplete="off"><button class="btn sec" data-x="addcat" data-k="${g.key}">Añadir</button></div>`:''}</div>`).join('')}
+  <div class="xeg"><b class="dh3" style="margin:0">Nueva categoría general</b><div class="xec" style="padding:0"><input id="xng" placeholder="Potencia" autocomplete="off"><button class="btn" data-x="addgen">Añadir</button></div></div></div></article>`;
+}
+async function xsave(){
+  const X=S.x,d=X.ed,name=d.name.trim(),fail=m=>{X.err=m;render()};
+  if(!name)return fail('Ponle un nombre al ejercicio.');
+  if(lib.some((it,i)=>i!==d.i&&xnorm(it.name)===xnorm(name)))return fail('Ya hay un ejercicio con ese nombre.');
+  if(d.up==='busy')return fail('Espera a que termine de subir el vídeo.');
+  const gens0=JSON.parse(JSON.stringify(xlib.gens)),lib0=JSON.parse(JSON.stringify(lib));
+  let cat=d.cat;
+  if(cat==='__new'){const v=d.newcat.trim();if(!v)return fail('Escribe el nombre de la nueva categoría.');const ya=xcats().find(c=>xnorm(c)===xnorm(v));if(ya)cat=ya;else{xlib.gens[+d.gen].cats.push(v);cat=v}}
+  const video=d.vmode==='file'?d.url:d.video.trim();
+  const rec={...(d.i!=null?lib[d.i]:{}),name,cat,mat:d.mat.join(', '),prog:d.prog,video,vs:video?(d.vmode==='file'?'mio':d.vs):'',tips:d.tips.trim()};
+  const i=d.i==null?lib.length:d.i;lib[i]=rec;
+  if(!await saveLib()){lib=lib0;xlib.gens=gens0;render();return}
+  X.og.add(xgi(cat));X.oc.add(cat);X.sel=i;X.ed=null;X.view='det';X.msg=d.i==null?'Ejercicio creado':'Cambios guardados';render();
+}
+// Vídeo propio: se sube al almacén "videos" de Supabase (ver supabase/videos.sql)
+async function xupload(file){
+  const d=S.x.ed;if(!d)return;
+  if(file.size>50*1024*1024){S.x.err='El vídeo pesa más de 50 MB. Recórtalo o expórtalo con menos calidad.';render();return}
+  d.up='busy';S.x.err='';render();
+  const ext=(file.name.match(/\.(mp4|mov|webm)$/i)||['','mp4'])[1].toLowerCase();
+  const path=Date.now()+'-'+(xnorm(d.name||file.name).normalize('NFD').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'video')+'.'+ext;
+  const {error}=await sb.storage.from('videos').upload(path,file,{contentType:file.type||'video/mp4'});
+  if(error){d.up='';S.x.err=/bucket|not found/i.test(error.message||'')?'Falta preparar el almacén de vídeos en Supabase (archivo supabase/videos.sql).':'No se pudo subir el vídeo: '+error.message;render();return}
+  d.url=sb.storage.from('videos').getPublicUrl(path).data.publicUrl;d.file=file.name;d.up='ok';render();
+}
+// Cargar base desde el planificador Excel: hoja BASE_EJERCICIOSVIDEOS (ejercicios) y LISTAS (categorías generales)
+async function xImport(file){
+  S.x.imp='busy';S.x.impMsg='';S.x.err='';render();
+  try{
+    const sheets=await readXlsx(await file.arrayBuffer());
+    if(!sheets['BASE_EJERCICIOSVIDEOS'])throw new Error('No encuentro la hoja "BASE_EJERCICIOSVIDEOS" en este Excel.');
+    const b=await sheets['BASE_EJERCICIOSVIDEOS']();
+    const s=v=>v==null?'':String(v).trim();let upd=0,add=0;
+    for(const r in b.rows){const x=b.rows[r],name=s(x[2]);if(+r<1||!name)continue;
+      const link=/^https?:/.test(s(x[5]))?s(x[5]):'',mine=/m[ií]o/i.test(s(x[6]));
+      const it=lib.find(y=>xnorm(y.name)===xnorm(name));
+      const prog=typeof x[4]==='number'?String(Math.round(x[4])):s(x[4]);
+      if(it){upd++;it.cat=s(x[1])||it.cat;it.mat=s(x[3])||it.mat||'';if(prog!=='')it.prog=prog;if(link&&!isFile(it.video))it.video=link;if(it.video&&!isFile(it.video))it.vs=mine?'mio':'otro'}
+      else{add++;lib.push({name,cat:s(x[1]),mat:s(x[3]),prog,video:link,vs:link?(mine?'mio':'otro'):'',tips:''})}}
+    // Categorías generales: en LISTAS, fila con "Estabilidad · Cadena_Posterior · Movilidad · Otro" y sus categorías debajo
+    let gmsg='';
+    if(!xlib.gens.length&&sheets['LISTAS']){const l=await sheets['LISTAS']();const rows=Object.keys(l.rows).map(Number).sort((a,b)=>a-b);
+      const h=rows.find(r=>s(l.rows[r][2])==='Estabilidad'&&s(l.rows[r][3]));
+      if(h!=null){const gens=[];for(let c=2;c<8;c++){const g=s(l.rows[h][c]);if(!g||/estado/i.test(g))continue;const cats=[];for(let r=h+1;r<h+30;r++){const v=s((l.rows[r]||{})[c]);if(!v)break;cats.push(xcats().find(y=>xnorm(y)===xnorm(v))||v)}gens.push({name:g,cats})}
+        if(gens.length){xlib.gens=gens;gmsg=` y ${gens.length} categorías generales`}}}
+    if(!await saveLib()){S.x.imp='';render();return}
+    S.x.imp='';S.x.impMsg=`Listo: ${upd} ejercicios actualizados, ${add} nuevos${gmsg}.`;render();
+  }catch(e){S.x.imp='';S.x.err=(e&&e.message)||'No se pudo leer el Excel.';render()}
+}
+async function xact(a,t){
+  const X=S.x,k=t.dataset.k,tog=(set,v)=>set.has(v)?set.delete(v):set.add(v);
+  if(a==='tf')tog(X.fo,k);
+  else if(a==='tfg')tog(X.fg,k);
+  else if(a==='tg')tog(t.dataset.t==='gen'?X.og:X.oc,k);
+  else if(a==='fopen')X.fopen=!X.fopen;
+  else if(a==='openall')xgroups().forEach(g=>{X.og.add(g.key);g.cats.forEach(c=>X.oc.add(c))});
+  else if(a==='closeall'){X.og.clear();X.oc.clear()}
+  else if(a==='clrcat')X.cats.clear();
+  else if(a==='clrall'){X.cats.clear();X.vids.clear();if(xlib.have){xlib.have=null;saveLib()}}
+  else if(a==='allmat'){xlib.have=null;saveLib()}
+  else if(a==='nomat'){xlib.have=[];saveLib()}
+  else if(a==='addmat'){const v=(document.getElementById('xnm').value||'').trim();if(v&&!xallMats().some(m=>m.toLowerCase()===v.toLowerCase())){xlib.mats.push(v);if(xlib.have)xlib.have.push(v);saveLib()}}
+  else if(a==='row'){X.sel=+t.dataset.i;X.view='det';X.msg='';X.err='';if(!wide())scrollTo(0,0)}
+  else if(a==='back'){X.view='list';X.ed=null;X.err=''}
+  else if(a==='cats'){X.view='cats';X.err=''}
+  else if(a==='new')xStartEdit(null);
+  else if(a==='edit')xStartEdit(X.sel);
+  else if(a==='editvid'){xStartEdit(X.sel);render();const v=document.getElementById('xe-video');if(v)v.focus();return}
+  else if(a==='em'){const l=X.ed.mat;X.ed.mat=l.includes(k)?l.filter(y=>y!==k):[...l,k]}
+  else if(a==='vm')X.ed.vmode=k;
+  else if(a==='vsel')X.ed.vs=k;
+  else if(a==='clrvid'){X.ed.video='';X.ed.url='';X.ed.file=''}
+  else if(a==='save'){await xsave();return}
+  else if(a==='delgen'){xlib.gens.splice(+k,1);X.fg.clear();X.og.clear();saveLib()}
+  else if(a==='delcat'&&!xcnt(k)){xlib.gens.forEach(g=>{g.cats=g.cats.filter(y=>y!==k)});X.cats.delete(k);saveLib()}
+  else if(a==='addcat'){const v=(document.getElementById('xnc'+k).value||'').trim();if(v&&!xtaken(v)){xlib.gens[+k].cats.push(v);saveLib()}}
+  else if(a==='addgen'){const v=(document.getElementById('xng').value||'').trim();if(v&&!xlib.gens.some(g=>xnorm(g.name)===xnorm(v))){xlib.gens.push({name:v,cats:[]});saveLib()}}
+  render();
+}
+// Cambios en casillas, desplegables y nombres de la pestaña Ejercicios
+function xchange(t){
+  const X=S.x,d=t.dataset;
+  if(t.id==='xfile'){if(t.files&&t.files[0])xupload(t.files[0]);return true}
+  if(t.id==='xxls'){if(t.files&&t.files[0])xImport(t.files[0]);return true}
+  if(d.xe&&X.ed&&t.tagName==='SELECT'){if(d.xe==='gen'){X.ed.gen=t.value;const cs=t.value==='none'?xloose():xlib.gens[+t.value].cats;X.ed.cat=cs[0]||'__new'}else X.ed[d.xe]=t.value;render();return true}
+  if(d.xrg!=null){const v=t.value.trim();if(v){xlib.gens[+d.xrg].name=v;saveLib()}render();return true}
+  if(d.xrc!=null){const old=d.xrc,v=t.value.trim();if(v&&xnorm(v)!==xnorm(old)&&!xtaken(v)){lib.forEach(x=>{if(x.cat===old)x.cat=v});xlib.gens.forEach(g=>{g.cats=g.cats.map(c=>c===old?v:c)});if(X.cats.delete(old))X.cats.add(v);if(X.oc.delete(old))X.oc.add(v);saveLib()}render();return true}
+  if(d.xmv!=null){xlib.gens.forEach(g=>{g.cats=g.cats.filter(y=>y!==d.xmv)});if(t.value!=='none')xlib.gens[+t.value].cats.push(d.xmv);saveLib();render();return true}
+  if(d.xf){const f=d.xf,v=t.value;
+    if(f==='gen')xgroups().find(g=>g.key===v).cats.forEach(c=>t.checked?X.cats.add(c):X.cats.delete(c));
+    else if(f==='cat')t.checked?X.cats.add(v):X.cats.delete(v);
+    else if(f==='vid')t.checked?X.vids.add(v):X.vids.delete(v);
+    else if(f==='mat'){const h=new Set(xlib.have||xallMats());t.checked?h.add(v):h.delete(v);xlib.have=h.size===xallMats().length?null:[...h];saveLib()}
+    render();return true}
+  return false;
+}
+
 /* ---------- render ---------- */
 function render(){
   let h;
@@ -440,6 +636,7 @@ function render(){
   if(!dl){dl=document.createElement('datalist');dl.id='lib';document.body.append(dl)}
   document.querySelectorAll('.cl').forEach(e=>{e.scrollTop=e.scrollHeight});
   dl.innerHTML=lib.map(x=>`<option value="${esc(x.name)}">`).join('');
+  document.querySelectorAll('[data-ind]').forEach(x=>{x.indeterminate=true});
 }
 
 /* ---------- acciones ---------- */
@@ -663,6 +860,8 @@ document.addEventListener('input',e=>{
   if(t.classList&&t.classList.contains('cm-in')){S.cmd[t.dataset.sid]=t.value;return}
   if(t.id==='inem'&&S.inv){S.inv.em=t.value;return}
   if(t.id==='cq'){S.q=t.value;const l=document.getElementById('clist');if(l)l.innerHTML=clistHTML();return}
+  if(t.id==='xq'){S.x.q=t.value;const l=document.getElementById('xlist');if(l)l.innerHTML=xListHTML();return}
+  if(t.dataset.xe&&S.x.ed&&t.tagName!=='SELECT'){S.x.ed[t.dataset.xe]=t.value;return}
   if(t.id==='chat-in'){S.chatDraft[isCoach()?selClient:me.id]=t.value;return}
   if(t.id==='exm-t'&&S.exm){S.exm.text=t.value;return}
   if(t.id==='ttl'&&edit){edit.model.title=t.value;return}
@@ -718,6 +917,7 @@ function resizeImg(file,n=192){return new Promise((ok,ko)=>{const im=new Image()
 document.addEventListener('change',async e=>{
   if(e.target.id==='avf'){const f=e.target.files[0];if(!f)return;try{await setAvatar(await resizeImg(f))}catch(x){alert(x.message)}return}
   const t=e.target;
+  if(isCoach()&&S.tab==='ejercicios'&&!edit&&xchange(t))return;
   if(t.dataset&&t.dataset.fld==='reps'&&routine&&S.tab!=='chat'&&!edit){autoNext(t);return}
   if(t.id==='xlsf'&&edit&&t.files&&t.files[0]){importXlsx(t.files[0]);return}
   if(t.id==='xlsc'&&selClient&&t.files&&t.files[0]){importForClient(t.files[0]);return}
@@ -736,11 +936,15 @@ document.addEventListener('click',e=>{
   if(t.dataset.tab){S.tab=t.dataset.tab;selClient=null;S.err='';render();if(S.tab==='chat'&&me)markRead(me.id);return}
   if(t.dataset.w!==undefined){S.w=+t.dataset.w;S.d=0;if(S.state==='client'&&routine&&!S.prevOn){const d=firstFree(S.w);if(d>=0)S.d=d}render();scrollTo(0,y);return}
   if(t.dataset.d!==undefined){S.d=+t.dataset.d;render();scrollTo(0,y);return}
+  if(t.dataset.x){const a=t.dataset.x;xact(a,t).then(()=>{if(a!=='row')scrollTo(0,y)});return}
   if(t.dataset.act)act(t.dataset.act,t).then(()=>scrollTo(0,y));
 });
 boot();
 
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList&&(e.target.classList.contains('cm-in')||e.target.id==='chat-in')){e.preventDefault();const b=e.target.parentElement.querySelector('[data-act=cmsend],[data-act=chatsend]');if(b)b.click()}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList&&(e.target.classList.contains('cm-in')||e.target.id==='chat-in')){e.preventDefault();const b=e.target.parentElement.querySelector('[data-act=cmsend],[data-act=chatsend]');if(b)b.click()}
+  // Ejercicios: Enter en "añadir material/categoría" pulsa su botón; en un nombre, lo guarda
+  const id=e.target.id||'';if(e.key==='Enter'&&(id==='xnm'||id==='xng'||id.startsWith('xnc'))){e.preventDefault();const b=e.target.parentElement.querySelector('[data-x]');if(b)b.click()}
+  if(e.key==='Enter'&&e.target.dataset&&(e.target.dataset.xrg!=null||e.target.dataset.xrc!=null)){e.preventDefault();e.target.blur()}});
 setInterval(async()=>{if(!me||!sb||document.hidden||S.exm||S.state==='login')return;try{await loadMsgs();if(isCoach()){const [c,r]=await Promise.all([sb.from('profiles').select('id,email,name,role').eq('role','client').order('email'),sb.from('routines').select('client_id')]);if(!c.error&&!r.error){clients=c.data||[];assigned=new Set((r.data||[]).map(x=>x.client_id))}}const c=isCoach()?(!wide()||deskChat()?selClient:null):(S.tab==='chat'?me.id:null);if(c)await markRead(c);soft()}catch(e){}},15000);
 document.addEventListener('toggle',e=>{const d=e.target;if(d.matches&&d.matches('details.ses')){const id=d.dataset.sid;if(d.open)S.open.add(id);else S.open.delete(id)}},true);
 
