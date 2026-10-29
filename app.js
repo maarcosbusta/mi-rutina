@@ -525,7 +525,7 @@ function xCatsHTML(){
 async function xsave(){
   const X=S.x,d=X.ed,name=d.name.trim(),fail=m=>{X.err=m;render()};
   if(!name)return fail('Ponle un nombre al ejercicio.');
-  if(lib.some((it,i)=>i!==d.i&&xnorm(it.name)===xnorm(name)))return fail('Ya hay un ejercicio con ese nombre.');
+  if(lib.some((it,i)=>i!==d.i&&String(it.name).trim()===name))return fail('Ya hay un ejercicio con ese nombre.');
   if(d.up==='busy')return fail('Espera a que termine de subir el vídeo.');
   const gens0=JSON.parse(JSON.stringify(xlib.gens)),lib0=JSON.parse(JSON.stringify(lib));
   let cat=d.cat;
@@ -554,10 +554,11 @@ async function xImport(file){
     const sheets=await readXlsx(await file.arrayBuffer());
     if(!sheets['BASE_EJERCICIOSVIDEOS'])throw new Error('No encuentro la hoja "BASE_EJERCICIOSVIDEOS" en este Excel.');
     const b=await sheets['BASE_EJERCICIOSVIDEOS']();
-    const s=v=>v==null?'':String(v).trim();let upd=0,add=0;
+    const s=v=>v==null?'':String(v).trim();let upd=0,add=0;const used=new Set();
     for(const r in b.rows){const x=b.rows[r],name=s(x[2]);if(+r<1||!name)continue;
       const link=/^https?:/.test(s(x[5]))?s(x[5]):'',mine=/m[ií]o/i.test(s(x[6]));
-      const it=lib.find(y=>xnorm(y.name)===xnorm(name));
+      // Primero el nombre exacto: hay ejercicios que solo se diferencian en mayúsculas (Peso Muerto / Peso muerto)
+      const it=lib.find(y=>!used.has(y)&&s(y.name)===name)||lib.find(y=>!used.has(y)&&xnorm(y.name)===xnorm(name));if(it)used.add(it);
       const prog=typeof x[4]==='number'?String(Math.round(x[4])):s(x[4]);
       if(it){upd++;it.cat=s(x[1])||it.cat;it.mat=s(x[3])||it.mat||'';if(prog!=='')it.prog=prog;if(link&&!isFile(it.video))it.video=link;if(it.video&&!isFile(it.video))it.vs=mine?'mio':'otro'}
       else{add++;lib.push({name,cat:s(x[1]),mat:s(x[3]),prog,video:link,vs:link?(mine?'mio':'otro'):'',tips:''})}}
