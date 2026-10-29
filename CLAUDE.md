@@ -4,7 +4,7 @@ Lee esto antes de tocar nada. Busca el texto entre comillas para ir directo a ca
 
 ## Qué es
 
-App web para móvil (se usa de pie en el gimnasio) de Marcos Bustamante, fisio deportivo. Los clientes ven su rutina, apuntan kg y repeticiones por serie, terminan la sesión puntuando el esfuerzo (1-5) y chatean con el entrenador. El entrenador (perfil con `role='admin'`) gestiona clientes, plantilla, rutinas e importa planes desde Excel.
+App web para móvil (se usa de pie en el gimnasio) de Marcos Bustamante, fisio deportivo. Los clientes ven su rutina, apuntan kg y repeticiones por serie, terminan la sesión puntuando el esfuerzo (1-10, solo lo ve el entrenador) y chatean con el entrenador. El entrenador (perfil con `role='admin'`) gestiona clientes, plantilla, rutinas e importa planes desde Excel.
 
 Página estática sin build: GitHub Pages sirve los ficheros tal cual. Backend: Supabase (autenticación por invitación + base de datos).
 
@@ -12,7 +12,7 @@ Página estática sin build: GitHub Pages sirve los ficheros tal cual. Backend: 
 
 | Fichero | Qué hay |
 | --- | --- |
-| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`. Lleva `?v=30` para saltarse la caché: súbelo en los tres ficheros al publicar cambios de CSS/JS. |
+| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`. Lleva `?v=31` para saltarse la caché: súbelo en los tres ficheros al publicar cambios de CSS/JS. |
 | `config.js` | URL y clave **anon** de Supabase (pública por diseño; los permisos los dan las políticas RLS). Nunca pongas aquí la clave `service_role`. |
 | `app.js` | Toda la app (~620 líneas). Ver abajo. |
 | `style.css` | Estilos. Bloques: "barra superior", "semanas y días", "progreso y mapa de bloques", "bloque de superserie", "barra fija de sesión", "botones y formularios", "panel del entrenador", "editor del entrenador", "marca Marcos Bustamante", "series desplegables", "tipo de bloque". Tema oscuro en `:root[data-theme="dark"]`. |
@@ -40,12 +40,13 @@ Tablas que usa la app:
 - `profiles`: id, email, name, role (`client` / `admin`), avatar_url.
 - `routines`: client_id, title, data = `{weeks:[{name, days:[{name, items:[ejercicio]}]}]}`, updated_at.
 - `templates`: id `base` (plantilla, mismo formato que una rutina) e id `lib` (`{items:[{name}]}`, autocompletado de ejercicios).
-- `sessions`: client_id, week, day, wname, dname, performed_at, feeling (1-5), notes, items (ejercicios con `sets:[{kg,reps,done}]`).
+- `sessions`: client_id, week, day, wname, dname, performed_at, feeling (1-5, solo sesiones antiguas: ya no se rellena), notes, items (ejercicios con `sets:[{kg,reps,done}]`).
+- `session_effort`: session_id, client_id, effort (1-10). Privada: el cliente solo puede insertar el suyo; solo el entrenador (`is_admin()`) puede leer. La carga `loadEfforts`.
 - `session_comments`: session_id, author_id, body, created_at.
 - `messages`: client_id, author_id, body, kind (`bien`/`duro`/`molestia`/`duda`), ex_name, ctx, read_at.
 - RPC: `mark_read`, `set_name`, `set_avatar`.
 
-Ejercicio dentro de `items`: `{id, block, name, cat, series, reps, kg, rest, video, ss}`. `block` agrupa ejercicios seguidos; `ss` marca superserie (si falta, 2+ ejercicios en el bloque = superserie).
+Ejercicio dentro de `items`: `{id, block, name, cat, series, reps, kg, rest, video, tips, ss}`. `video` puede ser un archivo propio (`.mp4/.webm/.mov`, p. ej. `videos/sentadilla.mp4` en este repositorio), que se ve dentro de la tarjeta, o un enlace (YouTube), que abre fuera. `tips` = claves técnicas separadas por `;`. `block` agrupa ejercicios seguidos; `ss` marca superserie (si falta, 2+ ejercicios en el bloque = superserie).
 
 En el navegador (localStorage): `rutina-draft-<id>` (series a medio apuntar), `welcome-<id>`, `seen-<id>`.
 

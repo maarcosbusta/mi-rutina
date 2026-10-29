@@ -145,6 +145,16 @@ nav{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);paddin
 .feel button{border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:10px 0 8px;cursor:pointer;display:grid;gap:2px;justify-items:center}.feel button b{font:800 22px/1 var(--display)}.feel button small{font:700 10.5px var(--body);color:var(--muted)}.feel button[aria-pressed=true] small{color:inherit;opacity:.85}
 .feel button[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .fl{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}
+/* esfuerzo 1-10 al terminar sesión */
+.esf{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.esf button{min-height:52px;border:0;border-radius:8px;background:var(--accent);color:var(--accent-ink);font:600 20px var(--mono);cursor:pointer}
+.esf button[aria-pressed=true]{background:var(--done);color:#fff}
+.esf button:disabled{opacity:.5;cursor:default}
+.tag.ef{font-family:var(--mono)}.tag.ef.hi{background:#C0392B;color:#fff}
+/* vídeo propio dentro de la tarjeta */
+.clip{display:block;width:100%;max-height:60vh;aspect-ratio:9/16;object-fit:cover;background:#0D2A6B;border-radius:12px}
+.tips{margin:8px 0 0;padding-left:22px;font-size:15px}.tips li{margin:4px 0}
+.lv{flex-basis:100%;margin-top:8px}
 .hero{margin-top:36px;display:grid;gap:14px}
 .hero p{margin:0;color:var(--muted);max-width:46ch}
 .auth{display:grid;gap:14px;margin-top:22px}
