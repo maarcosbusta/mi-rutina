@@ -118,7 +118,19 @@ function loginView(){
   return `<div class="bhero"><div class="bl">${MARK}<span class="bn2"><b>Marcos Bustamante</b><small>Fisio deportivo · Entrenamiento</small></span></div><h1>Entrena sano.<br><em>Rinde más.</em></h1></div><p class="hint" style="margin:18px 0 0">Entra con tu cuenta</p><form class="auth" id="fLogin"><label>Correo<input type="email" id="em" autocomplete="email" required></label><label>Contraseña<input type="password" id="pw" autocomplete="current-password" required></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" ${S.busy?'disabled':''}>${S.busy?'Entrando…':'Entrar'}</button><button type="button" class="linkb" data-act="forgot">He olvidado mi contraseña</button><p class="hint">¿Aún no tienes cuenta? Tu entrenador te enviará una invitación por correo.</p></form>`;
 }
 function setpwView(){
-  return head(S.chpw?'<h1>Cambiar contraseña</h1>':'<h1>Crea tu contraseña</h1>',S.chpw?'':'Último paso para entrar')+`<form class="auth" id="fSetpw">${!S.chpw&&!S.linkName?'<label>Tu nombre y apellidos<input id="nm" autocomplete="name" maxlength="80" required></label>':''}<label>Contraseña nueva (mínimo 8 caracteres)<input type="password" id="pw" autocomplete="new-password" minlength="8" required></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" ${S.busy?'disabled':''}>${S.busy?'Guardando…':(S.chpw?'Guardar contraseña':'Guardar y entrar')}</button>${S.chpw?'<button type="button" class="linkb" data-act="cancelpw">Cancelar</button>':''}</form>`;
+  return head(S.chpw?'<h1>Cambiar contraseña</h1>':'<h1>Crea tu contraseña</h1>',S.chpw?'':'Último paso para entrar')+`<form class="auth" id="fSetpw">${!S.chpw&&!S.linkName?`<label>Tu nombre y apellidos<input id="nm" autocomplete="name" maxlength="80" value="${esc(S.nm||'')}" required></label>`:''}<label>Contraseña nueva<input type="password" id="pw" autocomplete="new-password" minlength="8" required aria-describedby="pwreq"></label><div class="pwbox"><p class="hint" style="margin:0 0 6px">Tu contraseña debe tener:</p><ul class="pwreq" id="pwreq">${pwReqHTML('')}</ul><p class="hint" style="margin:6px 0 0">Tampoco vale una contraseña que haya salido en filtraciones de internet: lo comprobamos sin enviarla a nadie.</p></div>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" ${S.busy?'disabled':''}>${S.busy?(S.busyTxt||'Guardando…'):(S.chpw?'Guardar contraseña':'Guardar y entrar')}</button>${S.chpw?'<button type="button" class="linkb" data-act="cancelpw">Cancelar</button>':''}</form>`;
+}
+// Requisitos de contraseña. Coinciden con los que se pueden exigir en Supabase (Authentication > Passwords).
+const PWR=[[/.{8,}/,'8 caracteres o más','8 caracteres como mínimo'],[/[A-Z]/,'Una mayúscula (A-Z)','una mayúscula'],[/[a-z]/,'Una minúscula (a-z)','una minúscula'],[/[0-9]/,'Un número (0-9)','un número'],[/[!@#$%^&*()_+\-=\[\]{};'\\:"|<>?,.\/`~]/,'Un símbolo, como ! ? * # @ . -','un símbolo']];
+const pwReqHTML=pw=>PWR.map(([re,t])=>`<li class="${re.test(pw)?'okr':''}">${esc(t)}</li>`).join('');
+// Comprueba en Have I Been Pwned si la contraseña ha salido en filtraciones (k-anonimato: solo se envían 5 caracteres del hash SHA-1).
+async function pwned(pw){
+  try{
+    const h=[...new Uint8Array(await crypto.subtle.digest('SHA-1',new TextEncoder().encode(pw)))].map(b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
+    const r=await fetch('https://api.pwnedpasswords.com/range/'+h.slice(0,5),{headers:{'Add-Padding':'true'}});
+    if(!r.ok)return false;
+    return (await r.text()).split('\n').some(l=>{const [suf,n]=l.trim().split(':');return suf===h.slice(5)&&+n>0});
+  }catch(e){return false} // sin conexión con el servicio: no bloquea, Supabase sigue validando el resto
 }
 const noconfigView=()=>head('<h1>Falta configurar</h1>','')+`<div class="hero"><p>Abre el archivo <b>config.js</b> y pega la URL y la clave de tu proyecto de Supabase. Los pasos están en GUIA.md.</p></div>`;
 
@@ -519,17 +531,22 @@ document.addEventListener('submit',async e=>{
     S.busy=false;S.info='Si el correo existe, recibirás un enlace en unos minutos.';render();return;
   }
   if(id==='fSetpw'){
-    const pw=val('pw'),nm=val('nm').trim();
-    S.busy=true;render();
+    const pw=val('pw'),nm=val('nm').trim();S.nm=nm;
+    const miss=PWR.filter(([re])=>!re.test(pw)).map(x=>x[2]);
+    if(miss.length){S.err='A tu contraseña le falta: '+miss.join(', ')+'.';render();return}
+    S.busy=true;S.busyTxt='Comprobando…';render();
+    if(await pwned(pw)){S.busy=false;S.err='Esa contraseña ha aparecido en filtraciones de internet y no es segura. Elige otra distinta.';render();return}
+    S.busyTxt='Guardando…';render();
     const {error}=await sb.auth.updateUser({password:pw});
     S.busy=false;
-    if(error){S.err=error.message;render();return}
+    if(error){S.err=error.code==='weak_password'||/weak|password should/i.test(error.message||'')?'La contraseña no cumple los requisitos de seguridad. Revisa la lista y prueba otra.':error.code==='same_password'?'La contraseña nueva tiene que ser distinta de la anterior.':error.message;render();return}
     if(nm)await sb.rpc('set_name',{n:nm});
     S.chpw=false;S.linkName=null;history.replaceState(null,'',location.pathname);await enter();
   }
 });
 document.addEventListener('input',e=>{
   const t=e.target;
+  if(t.id==='pw'){const l=document.getElementById('pwreq');if(l)l.innerHTML=pwReqHTML(t.value);return}
   if(t.classList&&t.classList.contains('cm-in')){S.cmd[t.dataset.sid]=t.value;return}
   if(t.id==='cq'){S.q=t.value;const l=document.getElementById('clist');if(l)l.innerHTML=clistHTML();return}
   if(t.id==='chat-in'){S.chatDraft[isCoach()?selClient:me.id]=t.value;return}
