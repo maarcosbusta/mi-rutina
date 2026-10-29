@@ -12,7 +12,7 @@ Página estática sin build: GitHub Pages sirve los ficheros tal cual. Backend: 
 
 | Fichero | Qué hay |
 | --- | --- |
-| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`. Lleva `?v=34` para saltarse la caché: súbelo en los tres ficheros al publicar cambios de CSS/JS. |
+| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`. Lleva `?v=35` para saltarse la caché: súbelo en los tres ficheros al publicar cambios de CSS/JS. |
 | `config.js` | URL y clave **anon** de Supabase (pública por diseño; los permisos los dan las políticas RLS). Nunca pongas aquí la clave `service_role`. |
 | `app.js` | Toda la app (~620 líneas). Ver abajo. |
 | `style.css` | Estilos. Bloques: "barra superior", "semanas y días", "progreso y mapa de bloques", "bloque de superserie", "barra fija de sesión", "botones y formularios", "panel del entrenador", "editor del entrenador", "marca Marcos Bustamante", "series desplegables", "tipo de bloque". Tema oscuro en `:root[data-theme="dark"]`. |
@@ -26,7 +26,7 @@ Cabeceras `/* ---------- X ---------- */`:
 - **"piezas comunes"**: `topbar`, `nav` (semanas y días), `facts`, `normNav`. Nombre del entrenador en `const TRAINER`.
 - **"acceso"**: `loginView`, `setpwView` (invitación y recuperar contraseña), `offlineView`, `welcomeHTML`. Requisitos de contraseña en `const PWR` (8+ caracteres, mayúscula, minúscula, número y símbolo) y comprobación de contraseñas filtradas en `pwned` (Have I Been Pwned por k-anonimato; si el servicio no responde, no bloquea). Deben coincidir con lo configurado en Supabase > Authentication > Passwords.
 - **"cliente"**: `clientRoutine` (pantalla principal de entrenamiento), `groupsOf`/`isSS`/`syncSS` (superseries), `dget` (borrador de series), `lastSets`/`lastFor` ("Última vez"), descanso (`startRest`, `restBar`), `chatHTML`, `sessionHTML` (historial), `clientView`.
-- **"entrenador"**: `coachView` (pestañas Clientes / Actividad / Plantilla), `feedHTML`, `msgsHTML`, `newHTML`, `previewView`, `editorView`, `importCard`.
+- **"entrenador"**: `coachView` (pestañas Clientes / Actividad / Plantilla), `inviteHTML` (botón «+ Añadir cliente» y formulario `fInvite`, estado `S.inv`), `feedHTML`, `msgsHTML`, `newHTML`, `previewView`, `editorView`, `importCard`.
 - **"render"**: `render()` repinta todo desde el estado `S` (no hay framework).
 - **"acciones"**: `act(a,t)` gestiona cada botón según su `data-act` (guardar sesión `savesession`, editor `saveed`, chat `chatsend`...).
 - **"importar Excel (hoja Plan_SS1)"**: `parsePlan`, `importForClient`, `importXlsx`.
@@ -46,6 +46,7 @@ Tablas que usa la app:
 - `session_seen`: session_id, seen_at. Sesiones que el entrenador ya revisó en Actividad ("Ya lo vi" o al abrirlas). Solo el entrenador (`is_admin()`). La cargan `loadSeen`/`markSeen`; vuelve a salir como "Por responder" solo si el cliente comenta después de `seen_at`. SQL en `supabase/session_seen.sql`.
 - `messages`: client_id, author_id, body, kind (`bien`/`duro`/`molestia`/`duda`), ex_name, ctx, read_at.
 - RPC: `mark_read`, `set_name`, `set_avatar`.
+- Edge Function `invitar-cliente` (`supabase/functions/invitar-cliente/index.ts`): comprueba que quien llama es admin y envía la invitación por correo con la clave service_role (solo en el servidor). Si la cambias, vuelve a desplegarla en Supabase.
 
 Ejercicio dentro de `items`: `{id, block, name, cat, series, reps, kg, rest, video, tips, ss}`. `video` puede ser un archivo propio (`.mp4/.webm/.mov`, p. ej. `videos/sentadilla.mp4` en este repositorio), que se ve dentro de la tarjeta, o un enlace (YouTube), que abre fuera. `tips` = claves técnicas separadas por `;`. `block` agrupa ejercicios seguidos; `ss` marca superserie (si falta, 2+ ejercicios en el bloque = superserie).
 

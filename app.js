@@ -272,7 +272,10 @@ function chatHTML(cid){
     return `<div class="cmsg ${mine?'me':''}">${m.ex_name?`<span class="mctx">🏋️ ${esc(m.ex_name)}${m.ctx?' · '+esc(m.ctx):''}</span>`:(m.ctx?`<span class="mctx">${esc(m.ctx)}</span>`:'')}${m.kind?`<span class="mk k-${m.kind}">${KIND[m.kind]}</span>`:''}<p>${esc(m.body)}</p><small>${esc(ftime(m.created_at))}${mine&&i===li&&m.read_at?' · ✓ Visto':''}</small></div>`}).join(''):'<p class="hint" style="margin:auto;text-align:center">Aún no hay mensajes. Escribe el primero.</p>';
   return `<div class="chat"><div class="cl" role="log">${list}</div><div class="kq">${Object.keys(KIND).map(k=>`<button class="kc ${S.chatKind===k?'on':''}" data-act="ckind" data-k="${k}" aria-pressed="${S.chatKind===k}">${KIND[k]}</button>`).join('')}</div><div class="cmf"><input id="chat-in" maxlength="1000" autocomplete="off" placeholder="${isCoach()?'Escribe al cliente…':'Escribe a tu entrenador…'}" value="${esc(S.chatDraft[cid]||'')}" aria-label="Mensaje"><button class="btn sec" data-act="chatsend" data-cid="${esc(cid)}">Enviar</button></div></div>`;
 }
-function clistHTML(){const q=(S.q||'').trim().toLowerCase(),L=q?clients.filter(c=>(label(c)+' '+(c.email||'')).toLowerCase().includes(q)):clients;return L.length?L.map(c=>`<button class="li" data-act="pick" data-id="${esc(c.id)}"><span class="who"><span class="av sm">${esc(initial(c))}</span><span><b>${esc(label(c))}</b><small>${assigned.has(c.id)?'Rutina asignada':'Sin rutina'}</small></span></span>${unreadIn(c.id).length?`<span class="tag warn">${unreadIn(c.id).length} nuevo${unreadIn(c.id).length>1?'s':''}</span>`:`<span class="tag ${assigned.has(c.id)?'ok':''}">${assigned.has(c.id)?'Activo':'Pendiente'}</span>`}</button>`).join(''):q?'<div class="empty">Ningún cliente coincide.</div>':'<div class="empty">Aún no hay clientes. Invítalos desde Supabase: Authentication → Users → Invite user. Aparecerán aquí cuando acepten.</div>'}
+function clistHTML(){const q=(S.q||'').trim().toLowerCase(),L=q?clients.filter(c=>(label(c)+' '+(c.email||'')).toLowerCase().includes(q)):clients;return L.length?L.map(c=>`<button class="li" data-act="pick" data-id="${esc(c.id)}"><span class="who"><span class="av sm">${esc(initial(c))}</span><span><b>${esc(label(c))}</b><small>${assigned.has(c.id)?'Rutina asignada':'Sin rutina'}</small></span></span>${unreadIn(c.id).length?`<span class="tag warn">${unreadIn(c.id).length} nuevo${unreadIn(c.id).length>1?'s':''}</span>`:`<span class="tag ${assigned.has(c.id)?'ok':''}">${assigned.has(c.id)?'Activo':'Pendiente'}</span>`}</button>`).join(''):q?'<div class="empty">Ningún cliente coincide.</div>':'<div class="empty">Aún no hay clientes. Pulsa «+ Añadir cliente» y escribe su correo. Aparecerán aquí cuando acepten la invitación.</div>'}
+// Añadir cliente: el entrenador escribe el correo y le llega la invitación
+function inviteHTML(){const v=S.inv;if(!v)return '<button class="btn big" data-act="addcli" style="margin-top:10px">+ Añadir cliente</button>';
+  return `<form class="auth invf" id="fInvite"><label>Correo del cliente<input type="email" id="inem" autocomplete="off" required placeholder="cliente@correo.com" value="${esc(v.em||'')}"></label><p class="hint" style="margin:0">Le llegará un correo para crear su contraseña. Aparecerá en tu lista cuando entre por primera vez.</p>${v.err?`<div class="err" role="alert">${esc(v.err)}</div>`:''}${v.ok?`<div class="ok" role="status">${esc(v.ok)}</div>`:''}<button class="btn big" ${v.busy?'disabled':''}>${v.busy?'Enviando…':'Enviar invitación'}</button><button type="button" class="linkb" data-act="addclix">Cerrar</button></form>`}
 function newHTML(){
   const nw=clients.filter(c=>!assigned.has(c.id));if(!nw.length)return '';
   return `<section class="feed"><h2>Clientes nuevos</h2>${nw.map(c=>`<div class="fi hot"><button class="fib" data-act="pick" data-id="${esc(c.id)}"><span class="av sm">${esc(initial(c))}</span><span class="fit"><b>${esc(label(c))}</b><small>${esc(c.email)}</small><span class="sm"><span class="tag warn">Sin rutina</span><span class="fw">Toca para asignarle una</span></span></span></button></div>`).join('')}</section>`}
@@ -341,7 +344,7 @@ function coachView(){
     const has=assigned.has(sel.id);
     body=`<button class="back" data-act="backc">← Clientes</button><main class="panel"><h2>${esc(label(sel))}</h2><p class="hint" style="margin:0">${esc(sel.email)}</p><div class="ed2" style="display:flex;gap:8px"><input id="cname" value="${esc(sel.name||'')}" placeholder="Nombre del cliente" aria-label="Nombre del cliente"><button class="btn sec" data-act="savename">Guardar</button></div>${has?`<button class="btn big" data-act="preview" style="margin-top:10px">Ver como lo ve el cliente</button>`:''}<label class="btn sec" for="xlsc" style="display:block;text-align:center;margin-top:10px">Cargar Excel (.xlsm) para este cliente</label><input type="file" id="xlsc" accept=".xlsm,.xlsx" hidden>${has?`<button class="btn big" data-act="editr">Editar su rutina</button>`:`<div class="empty">Este cliente aún no tiene rutina.</div><button class="btn big" data-act="assign" ${tpl?'':'disabled'}>Asignar plantilla base</button>${tpl?'':'<p class="hint">Crea primero la plantilla base.</p>'}`}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<h2 style="margin-top:14px">Chat</h2>${chatHTML(sel.id)}<h2 style="margin-top:14px">Sesiones registradas</h2>${cSessions.length?cSessions.map(sessionHTML).join(''):'<div class="empty">Todavía no ha registrado sesiones.</div>'}</main>`;
   }else{
-    body=S.tab==='actividad'?`<main class="panel">${newHTML()}${msgsHTML()}${feedHTML()||''}${!newHTML()&&!msgsHTML()&&!feedHTML()?'<div class="empty">Aún no hay actividad de tus clientes.</div>':''}</main>`:`<main class="panel"><div class="hrow"><h2>Tus clientes</h2><button class="sbtn" data-act="search" aria-label="Buscar cliente"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button></div>${S.q!=null?`<input id="cq" class="sin" type="search" placeholder="Buscar por nombre o correo" value="${esc(S.q)}" autocomplete="off">`:''}<div id="clist">${clistHTML()}</div><button class="btn sec" data-act="reload">Actualizar lista</button></main>`;
+    body=S.tab==='actividad'?`<main class="panel">${newHTML()}${msgsHTML()}${feedHTML()||''}${!newHTML()&&!msgsHTML()&&!feedHTML()?'<div class="empty">Aún no hay actividad de tus clientes.</div>':''}</main>`:`<main class="panel"><div class="hrow"><h2>Tus clientes</h2><button class="sbtn" data-act="search" aria-label="Buscar cliente"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button></div>${S.q!=null?`<input id="cq" class="sin" type="search" placeholder="Buscar por nombre o correo" value="${esc(S.q)}" autocomplete="off">`:''}${inviteHTML()}<div id="clist">${clistHTML()}</div><button class="btn sec" data-act="reload">Actualizar lista</button></main>`;
   }
   return topbar()+head('<h1>Panel del entrenador</h1>','Clientes y rutinas')+tabs+body;
 }
@@ -440,6 +443,8 @@ async function act(a,t){
   }
   if(a==='endpreview'){const p=S.prev;if(p){routine=p.routine;sessions=p.sessions;draft=p.draft}S.prev=null;S.prevOn=false;S.w=0;S.d=0;render();return}
   if(a==='reload'){await loadCoach();return}
+  if(a==='addcli'){S.inv={em:''};render();const i=document.getElementById('inem');i&&i.focus();return}
+  if(a==='addclix'){S.inv=null;render();return}
   if(a==='search'){S.q=S.q==null?'':null;render();if(S.q!=null){const q=document.getElementById('cq');q&&q.focus()}return}
   if(a==='pick'){selClient=t.dataset.id;S.err='';cSessions=[];render();loadClientSessions(selClient);markRead(selClient);return}
   if(a==='backc'){selClient=null;S.err='';render();return}
@@ -559,6 +564,15 @@ document.addEventListener('submit',async e=>{
     if(error){S.err='Correo o contraseña incorrectos.';render();return}
     await enter();return;
   }
+  if(id==='fInvite'){
+    const v=S.inv,em=val('inem').trim().toLowerCase();v.em=em;v.err='';v.ok='';v.busy=true;render();
+    const {data,error}=await sb.functions.invoke('invitar-cliente',{body:{email:em,redirectTo:location.origin+location.pathname}});
+    v.busy=false;
+    // Si la función responde con error, saca el mensaje que manda
+    if(error){let m='No se pudo enviar la invitación.';try{const j=await error.context.json();if(j&&j.error)m=j.error}catch(x){}v.err=m}
+    else{v.ok='Invitación enviada a '+em+'.';v.em=''}
+    render();if(!error){const i=document.getElementById('inem');i&&i.focus()}return;
+  }
   if(id==='fForgot'){
     const em=val('em').trim();
     S.busy=true;render();
@@ -583,6 +597,7 @@ document.addEventListener('input',e=>{
   const t=e.target;
   if(t.id==='pw'){const l=document.getElementById('pwreq');if(l)l.innerHTML=pwReqHTML(t.value);return}
   if(t.classList&&t.classList.contains('cm-in')){S.cmd[t.dataset.sid]=t.value;return}
+  if(t.id==='inem'&&S.inv){S.inv.em=t.value;return}
   if(t.id==='cq'){S.q=t.value;const l=document.getElementById('clist');if(l)l.innerHTML=clistHTML();return}
   if(t.id==='chat-in'){S.chatDraft[isCoach()?selClient:me.id]=t.value;return}
   if(t.id==='exm-t'&&S.exm){S.exm.text=t.value;return}
