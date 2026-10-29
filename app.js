@@ -11,7 +11,7 @@ const configured=!!(CFG.SUPABASE_URL&&CFG.SUPABASE_ANON_KEY&&!CFG.SUPABASE_URL.i
 const FROM_LINK=/type=(invite|recovery)/.test(location.hash);
 let sb=null,me=null;
 let S={state:'loading',tab:'rutina',w:0,d:0,err:'',info:'',busy:false,forgot:false};
-let msgs=[],comments={},efforts={},feed=[],seenSet=new Set(),routine=null,sessions=[],draft={},clients=[],assigned=new Set(),tpl=null,lib=[],selClient=null,cSessions=[],edit=null,finish=null;
+let msgs=[],comments={},efforts={},feed=[],seen={},routine=null,sessions=[],draft={},clients=[],assigned=new Set(),tpl=null,lib=[],selClient=null,cSessions=[],edit=null,finish=null;
 const loadJ=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch(e){return f}};
 const saveJ=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 const label=c=>(c&&(c.name||c.email))||'Cliente';
@@ -40,7 +40,19 @@ async function enter(){
   S.welcome=!isCoach()&&!(()=>{try{return localStorage.getItem('welcome-'+me.id)}catch(e){return 1}})();
   if(isCoach()){S.state='coach';render();await loadCoach()}else{S.state='client';render();await loadClient()}
 }
-async function loadMsgs(){const {data}=await sb.from('messages').select('*').order('created_at',{ascending:true}).limit(400);msgs=data||[]}
+async function loadMsgs(){const {data,error}=await sb.from('messages').select('*').order('created_at',{ascending:true}).limit(400);if(error)return;
+  // Si ya lo marcamos leído aquí y la recarga llegó antes que mark_read, no lo volvemos a dar por nuevo
+  const rd={};msgs.forEach(m=>{if(m.read_at)rd[m.id]=m.read_at});msgs=(data||[]).map(m=>m.read_at||!rd[m.id]?m:{...m,read_at:rd[m.id]})}
+// Sesiones revisadas por el entrenador ("Ya lo vi"): {id: fecha}. Se guardan en Supabase (tabla session_seen) para que no vuelvan a salir en otro dispositivo ni si iOS borra la memoria del navegador; el navegador queda de respaldo.
+async function loadSeen(){
+  seen={};try{const v=JSON.parse(localStorage.getItem('seen-'+me.id)||'{}');if(Array.isArray(v))v.forEach(id=>{seen[id]=new Date().toISOString()});else seen=v||{}}catch(e){}
+  const {data,error}=await sb.from('session_seen').select('session_id,seen_at');
+  if(!error){(data||[]).forEach(x=>{if(!seen[x.session_id]||new Date(seen[x.session_id])<new Date(x.seen_at))seen[x.session_id]=x.seen_at});
+    // Sube a Supabase lo que solo estaba en este navegador
+    const up=Object.keys(seen).filter(id=>!(data||[]).some(x=>x.session_id===id)&&feed.some(s=>s.id===id)).map(id=>({session_id:id,seen_at:seen[id]}));if(up.length)sb.from('session_seen').upsert(up).then(()=>{})}
+}
+function markSeen(sid){seen[sid]=new Date().toISOString();try{localStorage.setItem('seen-'+me.id,JSON.stringify(seen))}catch(e){}sb.from('session_seen').upsert({session_id:sid,seen_at:seen[sid]}).then(()=>{})}
+
 async function loadComments(ids){
   ids=[...new Set(ids)].filter(Boolean);if(!ids.length)return;
   const {data}=await sb.from('session_comments').select('*').in('session_id',ids).order('created_at',{ascending:true});
@@ -71,9 +83,9 @@ async function loadCoach(){
   clients=c.data||[];assigned=new Set((r.data||[]).map(x=>x.client_id));
   const base=(t.data||[]).find(x=>x.id==='base'),lb=(t.data||[]).find(x=>x.id==='lib');
   tpl=base?base.data:null;lib=lb?(lb.data.items||[]):[];
-  try{seenSet=new Set(JSON.parse(localStorage.getItem('seen-'+me.id)||'[]'))}catch(e){seenSet=new Set()}
   const f=await sb.from('sessions').select('id,client_id,dname,wname,performed_at,feeling,notes,items').order('performed_at',{ascending:false}).limit(40);
   feed=(f.data||[]).map(x=>({...x,date:x.performed_at}));
+  await loadSeen();
   await loadComments(feed.map(x=>x.id));
   await loadEfforts(feed.map(x=>x.id));
   await loadMsgs();
@@ -240,7 +252,7 @@ const KIND={bien:'👍 Bien',duro:'😅 Duro',molestia:'🤕 Molestia',duda:'❓
 const ftime=iso=>{try{return new Date(iso).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}};
 S.chatKind=null;S.chatDraft={};S.exm=null;S.mf='un';S.toast='';
 const unreadIn=cid=>msgs.filter(m=>m.client_id===cid&&m.author_id!==me.id&&!m.read_at);
-async function markRead(cid){const u=unreadIn(cid);if(!u.length)return;await sb.rpc('mark_read',{cid});const t=new Date().toISOString();u.forEach(m=>m.read_at=t);render()}
+async function markRead(cid){const u=unreadIn(cid);if(!u.length)return;const {error}=await sb.rpc('mark_read',{cid});if(error)return;const t=new Date().toISOString();u.forEach(m=>m.read_at=t);render()}
 function threadFor(cid){
   const ss=isCoach()?(selClient===cid?cSessions:[]):sessions;
   const old=ss.flatMap(s=>(comments[s.id]||[]).map(c=>({id:c.id,author_id:c.author_id,body:c.body,created_at:c.created_at,ctx:'Sesión: '+(s.dname||''),client_id:cid})));
@@ -267,12 +279,14 @@ function msgsHTML(){
 }
 function exmHTML(){const e=S.exm;if(!e)return '';
   return `<div class="mo" role="dialog" aria-modal="true"><div class="mc"><h2>${esc(e.name)}</h2><small class="sub">${esc(e.ctx)}</small><div class="kq">${Object.keys(KIND).map(k=>`<button class="kc ${e.kind===k?'on':''}" data-act="ekind" data-k="${k}" aria-pressed="${e.kind===k}">${KIND[k]}</button>`).join('')}</div><textarea id="exm-t" maxlength="1000" placeholder="¿Cómo te ha ido? ¿Alguna molestia o duda?">${esc(e.text)}</textarea><button class="btn big" data-act="exsend">Enviar a mi entrenador</button><button class="back" data-act="excancel">Cancelar</button></div></div>`}
-const actN=()=>clients.filter(c=>!assigned.has(c.id)).length+clients.reduce((n,c)=>n+unreadIn(c.id).length,0)+feed.filter(s=>new Date(s.date)>Date.now()-14*864e5&&needsReply(s)&&!seenSet.has(s.id)).length;
+const actN=()=>clients.filter(c=>!assigned.has(c.id)).length+clients.reduce((n,c)=>n+unreadIn(c.id).length,0)+feed.filter(s=>new Date(s.date)>Date.now()-14*864e5&&isHot(s)).length;
+// Por responder: necesita respuesta y el cliente no ha escrito nada nuevo desde que la viste
+const isHot=s=>{if(!needsReply(s))return false;const v=seen[s.id];if(!v)return true;const cs=comments[s.id]||[],l=cs[cs.length-1];return !!(l&&l.author_id===s.client_id&&new Date(l.created_at)>new Date(v))};
 const needsReply=s=>{const cs=comments[s.id]||[],l=cs[cs.length-1];if(l)return l.author_id===s.client_id;return !!((s.notes||'').trim()||(s.feeling&&s.feeling>=4)||efforts[s.id]>=8)};
 function feedHTML(){
   const cut=Date.now()-14*864e5;
   const rec=feed.filter(s=>new Date(s.date)>cut);
-  const att=rec.filter(s=>needsReply(s)&&!seenSet.has(s.id)).slice(0,8);
+  const att=rec.filter(isHot).slice(0,8);
   const rest=feed.filter(s=>!att.includes(s)).slice(0,6);
   const cl=s=>clients.find(c=>c.id===s.client_id)||{name:'Cliente'};
   const tot=s=>{let t=0,d=0;(s.items||[]).forEach(i=>(i.sets||[]).forEach(x=>{t++;if(x.done)d++}));return[d,t]};
@@ -366,8 +380,8 @@ async function act(a,t){
     inp.disabled=true;const {error}=await sb.from('session_comments').insert({session_id:sid,author_id:me.id,body});
     if(error){inp.disabled=false;alert('No se pudo enviar: '+error.message);return}
     S.cmd[sid]='';await loadComments([sid]);render();const n=document.getElementById('cm-'+sid);if(n)n.focus();return}
-  if(a==='openses'){selClient=t.dataset.cid;S.open.add(t.dataset.sid);S.err='';cSessions=[];render();loadClientSessions(selClient);markRead(selClient);return}
-  if(a==='seen'){seenSet.add(t.dataset.sid);try{localStorage.setItem('seen-'+me.id,JSON.stringify([...seenSet]))}catch(e){}render();return}
+  if(a==='openses'){selClient=t.dataset.cid;S.open.add(t.dataset.sid);markSeen(t.dataset.sid);S.err='';cSessions=[];render();loadClientSessions(selClient);markRead(selClient);return}
+  if(a==='seen'){markSeen(t.dataset.sid);render();return}
   if(a==='ckind'){S.chatKind=S.chatKind===t.dataset.k?null:t.dataset.k;render();return}
   if(a==='mf'){S.mf=t.dataset.k;render();return}
   if(a==='chatsend'){const cid=t.dataset.cid,inp=document.getElementById('chat-in'),text=(inp.value||'').trim(),kind=S.chatKind;if(!text&&!kind)return;

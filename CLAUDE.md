@@ -12,7 +12,7 @@ Página estática sin build: GitHub Pages sirve los ficheros tal cual. Backend: 
 
 | Fichero | Qué hay |
 | --- | --- |
-| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`. Lleva `?v=31` para saltarse la caché: súbelo en los tres ficheros al publicar cambios de CSS/JS. |
+| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`. Lleva `?v=32` para saltarse la caché: súbelo en los tres ficheros al publicar cambios de CSS/JS. |
 | `config.js` | URL y clave **anon** de Supabase (pública por diseño; los permisos los dan las políticas RLS). Nunca pongas aquí la clave `service_role`. |
 | `app.js` | Toda la app (~620 líneas). Ver abajo. |
 | `style.css` | Estilos. Bloques: "barra superior", "semanas y días", "progreso y mapa de bloques", "bloque de superserie", "barra fija de sesión", "botones y formularios", "panel del entrenador", "editor del entrenador", "marca Marcos Bustamante", "series desplegables", "tipo de bloque". Tema oscuro en `:root[data-theme="dark"]`. |
@@ -43,12 +43,13 @@ Tablas que usa la app:
 - `sessions`: client_id, week, day, wname, dname, performed_at, feeling (1-5, solo sesiones antiguas: ya no se rellena), notes, items (ejercicios con `sets:[{kg,reps,done}]`).
 - `session_effort`: session_id, client_id, effort (1-10). Privada: el cliente solo puede insertar el suyo; solo el entrenador (`is_admin()`) puede leer. La carga `loadEfforts`.
 - `session_comments`: session_id, author_id, body, created_at.
+- `session_seen`: session_id, seen_at. Sesiones que el entrenador ya revisó en Actividad ("Ya lo vi" o al abrirlas). Solo el entrenador (`is_admin()`). La cargan `loadSeen`/`markSeen`; vuelve a salir como "Por responder" solo si el cliente comenta después de `seen_at`. SQL en `supabase/session_seen.sql`.
 - `messages`: client_id, author_id, body, kind (`bien`/`duro`/`molestia`/`duda`), ex_name, ctx, read_at.
 - RPC: `mark_read`, `set_name`, `set_avatar`.
 
 Ejercicio dentro de `items`: `{id, block, name, cat, series, reps, kg, rest, video, tips, ss}`. `video` puede ser un archivo propio (`.mp4/.webm/.mov`, p. ej. `videos/sentadilla.mp4` en este repositorio), que se ve dentro de la tarjeta, o un enlace (YouTube), que abre fuera. `tips` = claves técnicas separadas por `;`. `block` agrupa ejercicios seguidos; `ss` marca superserie (si falta, 2+ ejercicios en el bloque = superserie).
 
-En el navegador (localStorage): `rutina-draft-<id>` (series a medio apuntar), `welcome-<id>`, `seen-<id>`.
+En el navegador (localStorage): `rutina-draft-<id>` (series a medio apuntar), `welcome-<id>`, `seen-<id>` (respaldo de `session_seen`).
 
 ## No tocar sin cuidado
 
