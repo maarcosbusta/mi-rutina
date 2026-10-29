@@ -15,7 +15,7 @@ let msgs=[],comments={},efforts={},feed=[],seen={},routine=null,sessions=[],draf
 const loadJ=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch(e){return f}};
 const saveJ=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 const label=c=>(c&&(c.name||c.email))||'Cliente';
-const soft=()=>{const a=document.activeElement;if(a&&a.matches&&a.matches('input,textarea'))return;render()};
+const soft=()=>{const a=document.activeElement;if(a&&a.matches&&a.matches('input,textarea'))return;if(typeof pdg!=='undefined'&&pdg&&pdg.on)return;render()};
 const isCoach=()=>me&&me.role==='admin';
 
 /* ---------- arranque y sesión ---------- */
@@ -357,16 +357,6 @@ function importCard(){
   const i=edit.imp||{};
   return `<div class="card ed"><b>Cargar desde Excel</b><p class="hint" style="margin:6px 0 10px">Sube tu planificador (.xlsm). Leo la hoja <b>Plan_SS1</b> y coloco aquí la rutina entera, con sus vídeos. No se guarda hasta que pulses Guardar.</p><label class="btn sec" for="xlsf" style="display:block;text-align:center;${i.busy?'opacity:.6;pointer-events:none':''}">${i.busy?'Leyendo Excel…':'Cargar Excel (.xlsm)'}</label><input type="file" id="xlsf" accept=".xlsm,.xlsx" hidden>${i.ok?`<p class="hint" style="margin:10px 0 0" role="status">${esc(i.text)}</p>${i.noVideo&&i.noVideo.length?`<p class="hint" style="margin:6px 0 0">Sin vídeo: ${esc(i.noVideo.join(', '))}.</p>`:''}`:''}${i.err?`<div class="err" role="alert" style="margin-top:10px">${esc(i.err)}</div>`:''}</div>`;
 }
-function editorView(){
-  const m=edit.model;normNav(m);const day=m.weeks[S.w].days[S.d];
-  const f=(it,k,l,full)=>`<div class="${full?'full':''}"><label>${l}<input data-id="${it.id}" data-f="${k}" value="${esc(it[k])}" ${k==='name'?'list="lib"':''} ${k==='video'?'inputmode="url" placeholder="videos/ejercicio.mp4 o enlace de YouTube"':''}${k==='tips'?'placeholder="Clave 1; clave 2; clave 3"':''}></label></div>`;
-  return head(`<input class="titlein" id="ttl" value="${esc(m.title)}" aria-label="Título" style="width:100%;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:8px 10px">`,esc(edit.label))+nav(m,true)+`<main><div class="card ed" style="margin-top:14px"><div class="grid"><div><label>Nombre de la semana<input data-wf="name" value="${esc(m.weeks[S.w].name)}"></label></div><div><label>Nombre del día<input data-df="name" value="${esc(day.name)}"></label></div></div><div class="tools"><button class="btn warn" data-act="delday">Quitar este día</button><button class="btn warn" data-act="delwk">Quitar esta semana</button><button class="btn sec" data-act="dupwk">Copiar semana</button></div></div><div style="height:12px"></div>`
-   +importCard()
-   +groupsOf(day.items).map((g,gi)=>{const ss=isSS(g),fi=g.items[0],bf=(k,l)=>`<div><label>${l}<input data-bf="${k}" data-i="${g.start}" value="${esc(fi[k])}"></label></div>`;
-     return (g.block?`<section class="eblk bk${gi%4}"><div class="bh"><span class="bn">${gi+1}</span><div class="bt"><h2>${esc(bname(g.block))}</h2></div></div><div class="mode" role="group" aria-label="Tipo de bloque"><button data-act="bmode" data-m="ss" data-i="${g.start}" aria-pressed="${ss}">Superserie</button><button data-act="bmode" data-m="normal" data-i="${g.start}" aria-pressed="${!ss}">Series normales</button></div><p class="hint" style="margin:0">${ss?'Los ejercicios se alternan por rondas. Series y descanso son los mismos para todo el bloque.':'Cada ejercicio se hace entero antes de pasar al siguiente, con sus propias series y su descanso.'}</p>${ss?`<div class="grid ed">${bf('series','Series del bloque')}${bf('rest','Descanso entre rondas')}</div>`:''}</section>`:'')
-     +g.items.map((it,k)=>{const i=g.start+k;return `<article class="card ed"><div class="grid">${f(it,'block','Bloque',1)}${f(it,'name','Ejercicio',1)}${ss?'':f(it,'series','Series')}${f(it,'reps','Repeticiones')}${f(it,'kg','Carga')}${ss?'':f(it,'rest','Descanso')}${f(it,'video','Vídeo (archivo o enlace)',1)}${f(it,'tips','Claves técnicas (separa con ;)',1)}</div><div class="tools"><button class="btn sec" data-act="up" data-i="${i}">Subir</button><button class="btn sec" data-act="down" data-i="${i}">Bajar</button><button class="btn warn" data-act="del" data-i="${i}">Quitar</button></div></article>`}).join('')}).join('')
-   +`<button class="btn sec" data-act="addex" style="width:100%;padding:14px">+ Añadir ejercicio</button></main><div class="coach"><span>${esc(edit.label)}</span><button class="btn sec" data-act="canceled">Cancelar</button><button class="btn" data-act="saveed" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar'}</button>${S.err?`<div class="msg" role="alert">${esc(S.err)}</div>`:''}</div>`;
-}
 
 /* ---------- vista de escritorio (Mac) ---------- */
 // En pantallas anchas el entrenador ve menú lateral + lista + detalle. En el móvil todo sigue igual.
@@ -620,6 +610,271 @@ function xchange(t){
   return false;
 }
 
+/* ---------- programador de rutinas (editor del entrenador) ---------- */
+// Editar rutina o plantilla: base de ejercicios a la izquierda (arrastrar o «+»), el día por bloques en el centro y la ficha del ejercicio a la derecha.
+// En el móvil, base y ficha suben como paneles. Guarda en el formato de siempre: block = nombre del bloque, ss = superserie.
+S.p={q:'',cats:new Set(),vids:new Set(),fopen:false,fo:new Set(['cat']),fg:new Set(),sel:null,lib:false,undo:null,ls:0,prog:false,P:{kg:2.5,reps:0,series:0}};
+const PDEF=['Movilidad','Estabilizadores','Fuerza 1','Fuerza 2'];
+const PI={
+  grip:'<svg width="14" height="20" viewBox="0 0 14 20" fill="currentColor" aria-hidden="true"><circle cx="4" cy="4" r="1.8"/><circle cx="10" cy="4" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="4" cy="16" r="1.8"/><circle cx="10" cy="16" r="1.8"/></svg>',
+  plus:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  vid:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="14" height="14" rx="3"/><path d="M17 10l4-2.5v9L17 14" stroke-linejoin="round"/></svg>',
+  x:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
+};
+const pday=()=>edit.model.weeks[S.w].days[S.d];
+const pblocks=d=>groupsOf(d.items).map(g=>g.items);
+const pss=b=>b.length>1&&isSS({block:b[0].block,items:b});
+const pset=(d,bs)=>{d.items=bs.filter(b=>b.length).flat()};
+// Nombre de un bloque nuevo: el primero de los de base que no esté ya en el día; si no, «Bloque 5»…
+function pnew(items,i){const used=new Set(items.map(x=>bname(x.block)));return PDEF.find(n=>!used.has(n))||'Bloque '+(i+1)}
+function pfind(){const bs=pblocks(pday());for(let b=0;b<bs.length;b++){const p=bs[b].findIndex(x=>x.id===S.p.sel);if(p>=0)return {b,p,blk:bs[b],x:bs[b][p]}}return null}
+// Tiempo estimado: ~40 s de trabajo por serie más el descanso
+const psecs=r=>{r=String(r||'').trim();let m;if(m=r.match(/^(\d+):(\d+)/))return +m[1]*60+ +m[2];if(m=r.match(/^(\d+(?:[.,]\d+)?)\s*min/))return parseFloat(m[1].replace(',','.'))*60;if(m=r.match(/^(\d+)/))return +m[1];return 60};
+function pmin(d){let t=0;pblocks(d).forEach(b=>{if(pss(b))t+=(+b[0].series||3)*(b.length*40+psecs(b[0].rest));else b.forEach(x=>{t+=isCardio(x)?(+x.series||10)*60:(+x.series||3)*(40+psecs(x.rest))})});return Math.max(5,Math.round(t/60/5)*5)}
+const pgen=c=>{const g=xlib.gens.find(g=>g.cats.includes(c));return xnice(g?g.name:c?'Sin categoría general':'Sin categoría')};
+
+function editorView(){
+  const m=edit.model;normNav(m);const wk=m.weeks[S.w],d=wk.days[S.d],nw=m.weeks.length,P=S.p;
+  const insp=!!pfind()&&!wide();
+  return `<div class="pg${P.lib&&!wide()?' libopen':''}${insp?' inspopen':''}" id="pg">
+  <header class="pg-top"><div class="pg-tb"><div class="pg-brand"><span class="pg-mb">MB</span><span><b>MARCOS BUSTAMANTE</b><small>Programador de rutinas</small></span></div><div class="pg-acts"><button class="pg-btn ghost" data-act="canceled">Cancelar</button><button class="pg-btn" data-act="saveed" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar'}</button></div></div>
+  <p class="pg-eyb">// ${esc(edit.label)}</p><input class="pg-ttl" id="ttl" value="${esc(m.title)}" aria-label="Título de la rutina" autocomplete="off"><div class="pg-wkp"><span>Semana ${S.w+1} de ${nw}</span><i><b style="width:${(S.w+1)/nw*100}%"></b></i></div></header>
+  ${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}
+  <div class="pg-shell"><aside class="pg-lib" aria-label="Base de ejercicios">${plibHTML()}</aside>
+  <main class="pg-plan"><div class="pg-nav"><div class="pg-row">${m.weeks.map((w,i)=>`<button class="pg-pill" data-w="${i}" aria-pressed="${i===S.w}">${esc(w.name)}</button>`).join('')}<button class="pg-pill prog" data-p="prog">Copiar con progresión</button><button class="pg-pill add" data-act="addwk">+ Semana</button></div>
+  <div class="pg-row">${wk.days.map((x,i)=>`<button class="pg-pill" data-d="${i}" aria-pressed="${i===S.d}">${esc(x.name)}</button>`).join('')}<button class="pg-pill add" data-act="addday">+ Día</button></div></div>
+  <div class="pg-names"><label>Semana<input data-wf="name" value="${esc(wk.name)}"></label><label>Día<input data-df="name" value="${esc(d.name)}"></label></div>
+  <div class="pg-tools"><button class="pg-lnk" data-act="delday">Quitar este día</button><button class="pg-lnk" data-act="delwk">Quitar esta semana</button></div>
+  <div class="pg-sum" id="pg-sum">${psumHTML()}</div><div id="pg-day">${pdayHTML()}</div>
+  <button class="pg-free" data-p="free">+ Ejercicio que no está en la base</button>${importCard()}</main>
+  <aside class="pg-insp" aria-label="Ficha del ejercicio">${pinspHTML()}</aside></div>
+  <div class="pg-mbar"><button class="pg-btn add" data-p="openlib">+ Añadir ejercicios</button><button class="pg-btn ghost" data-act="saveed" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar'}</button></div>
+  <div class="pg-scrim" data-pscrim></div>${P.prog?pprogHTML():''}</div>`;
+}
+function psumHTML(){
+  const d=pday();if(!d.items.length)return '';
+  const by={};d.items.forEach(x=>{const g=pgen(x.cat);by[g]=(by[g]||0)+(parseInt(x.series)||0)});
+  const max=Math.max(1,...Object.values(by));
+  return `<div class="pg-st"><div><small>Ejercicios</small><b>${d.items.length}</b></div><div><small>Bloques</small><b>${pblocks(d).length}</b></div><div><small>Duración</small><b>≈${pmin(d)}<em>min</em></b></div></div>
+  <div class="pg-sg"><small>Series por grupo</small>${Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="pg-sgr"><span>${esc(k)}</span><i><b style="width:${v/max*100}%"></b></i><em>${v}</em></div>`).join('')}</div>`;
+}
+function pdayHTML(){
+  const bs=pblocks(pday());
+  if(!bs.length)return `<div class="pg-empty pg-gap" data-at="0"><b>Día vacío</b>${wide()?'Arrastra aquí ejercicios desde la base de la izquierda.':'Pulsa «+ Añadir ejercicios» abajo.'}</div>`;
+  const gap=i=>`<div class="pg-gap" data-at="${i}">Nuevo bloque</div>`;
+  return bs.map((b,bi)=>{const ss=pss(b),f=b[0],many=b.length>1;
+    return gap(bi)+`<section class="pg-blk${ss?' ss':''}" data-b="${bi}"><div class="pg-bh"><input class="pg-bnm" data-bn="${bi}" value="${esc(bname(f.block))}" placeholder="Sin nombre" aria-label="Nombre del bloque" autocomplete="off"></div>`
+      +(many?`<div class="pg-bmode"><div class="pg-mode" role="group" aria-label="Tipo de bloque"><button data-p="bmode" data-b="${bi}" data-m="ss" aria-pressed="${ss}">Superserie</button><button data-p="bmode" data-b="${bi}" data-m="normal" aria-pressed="${!ss}">Series normales</button></div><small>${ss?`${esc(f.series||'?')} rondas · ${esc(f.rest||'sin descanso')}`:'Cada uno entero'}</small></div>`:'')
+      +b.map((x,p)=>`<div class="pg-ex" data-id="${x.id}" data-b="${bi}" data-p2="${p}"${x.id===S.p.sel?' aria-current="true"':''}><span class="pg-grip" aria-hidden="true">${PI.grip}</span><div class="pg-exb"><b>${esc(x.name)}</b><span><em>${esc(x.series||'?')} × ${esc(x.reps||'?')}</em>${x.kg?' · '+esc(n$(x.kg)):''}${!ss&&x.rest?' · '+esc(x.rest):''}</span></div>${x.video?`<span class="pg-vid" title="Tiene vídeo">${PI.vid}</span>`:''}</div>`).join('')
+      +`</section>`}).join('')+gap(bs.length);
+}
+// Lista de la base con los filtros de la pestaña Ejercicios (categoría, material que tengo y vídeo)
+function plist(){const P=S.p,q=P.q.trim().toLowerCase();
+  return lib.map((it,i)=>({it,i})).filter(({it})=>(!P.cats.size||P.cats.has(it.cat))&&(!P.vids.size||P.vids.has(xvs(it)))&&xmats(it).every(xhas)&&(!q||(it.name+' '+xnice(it.cat)+' '+(it.mat||'')).toLowerCase().includes(q)))}
+const pnAct=()=>S.p.cats.size+S.p.vids.size+(xlib.have?1:0);
+const pck=(f,v,l,on,n,ind)=>`<label class="xck"><input type="checkbox" data-pf="${f}" value="${esc(v)}" ${on?'checked':''} ${ind?'data-ind':''}>${esc(l)}${n!=null?`<em>${n}</em>`:''}</label>`;
+const psec=(k,t,sum,links,inner)=>{const o=S.p.fo.has(k);return `<div class="xfs"><button class="xft" data-p="tf" data-k="${k}" aria-expanded="${o}">${XCV}<b>${t}</b><small>${sum}</small></button>${o?`${links?`<div class="xfl">${links}</div>`:''}<div class="xfin">${inner}</div>`:''}</div>`};
+function pfiltersHTML(){
+  const P=S.p,ms=xallMats(),nh=ms.filter(xhas).length;
+  return `<div class="xfp">`
+  +psec('cat','Categoría',P.cats.size?`${P.cats.size} marc.`:'Todas',P.cats.size?'<button class="xlk" data-p="clrcat">Quitar</button>':'',
+    xgroups().map(g=>{const n=g.cats.filter(c=>P.cats.has(c)).length,all=g.cats.length>0&&n===g.cats.length,o=P.fg.has(g.key);
+      return `<div class="xgh">${pck('gen',g.key,xnice(g.name),all,null,n&&!all)}<button class="xgt" data-p="tfg" data-k="${g.key}" aria-expanded="${o}" aria-label="Ver categorías de ${esc(xnice(g.name))}">${XCV}</button></div>${o?`<div class="xsub">${g.cats.map(c=>pck('cat',c,xnice(c),P.cats.has(c),xcnt(c))).join('')}</div>`:''}`}).join('')||'<p class="hint">Aún no hay categorías.</p>')
+  +psec('mat','Material que tengo',xlib.have?`${nh}/${ms.length}`:'Todo','<button class="xlk" data-p="allmat">Todo</button><button class="xlk" data-p="nomat">Nada</button>',
+    `<p class="hint">Solo salen los ejercicios que puedes hacer con lo marcado.</p>${ms.map(m=>pck('mat',m,m,xhas(m))).join('')}`)
+  +psec('vid','Vídeo',P.vids.size?`${P.vids.size} marc.`:'Todos','',Object.keys(XVS).map(v=>pck('vid',v,XVS[v],P.vids.has(v),lib.filter(i=>xvs(i)===v).length)).join(''))
+  +`${pnAct()?'<button class="xlk" data-p="clrall">Quitar todos los filtros</button>':''}</div>`;
+}
+function plibListHTML(){
+  const P=S.p,list=plist(),inDay=new Set(pday().items.map(x=>x.name)),n=pnAct();
+  const cats=[...xgroups().flatMap(g=>g.cats),''].filter(c=>list.some(({it})=>(it.cat||'')===c));
+  return `${n&&!P.fopen?`<p class="pg-fsum">${list.length} de ${lib.length} ejercicios con filtros</p>`:''}${P.fopen?pfiltersHTML():''}`
+   +(cats.length?cats.map(c=>`<div class="pg-lc">// ${esc(xnice(c)||'Sin categoría')}</div>`+list.filter(({it})=>(it.cat||'')===c).map(({it,i})=>`<div class="pg-li" data-lib="${i}"><span class="pg-grip" aria-hidden="true">${PI.grip}</span><div class="pg-lt"><b>${esc(it.name)}</b><small>${esc(it.mat||'Sin material')}${it.video?' · vídeo':''}${inDay.has(it.name)?' · <i>ya en este día</i>':''}</small></div><button class="pg-plus" data-p="addlib" data-i="${i}" aria-label="Añadir ${esc(it.name)} al día">${PI.plus}</button></div>`).join('')).join('')
+   :`<div class="pg-none">${lib.length?'Ningún ejercicio coincide con los filtros.':'Tu base de ejercicios está vacía. Créala en la pestaña Ejercicios.'}</div>`);
+}
+function plibHTML(){
+  const n=pnAct();
+  return `<div class="pg-handle"></div><div class="pg-lh"><h2>Base de ejercicios<button class="pg-x" data-p="closelib" aria-label="Cerrar">${PI.x}</button></h2><div class="pg-sr"><input id="pg-q" type="search" placeholder="Buscar ejercicio" value="${esc(S.p.q)}" autocomplete="off"><button class="pg-fbtn" data-p="fopen" aria-expanded="${S.p.fopen}">Filtros${n?` <span class="dot2">${n}</span>`:''}${XCV}</button></div></div><div class="pg-ll" id="pg-ll">${plibListHTML()}</div>`;
+}
+function pinspHTML(){
+  const s=pfind();
+  if(!s)return `<div class="pg-hello"><h3>Cómo se usa</h3><ol class="pg-steps"><li><span>Arrastra un ejercicio de la base a un hueco <b>entre bloques</b>: crea un bloque nuevo.</span></li><li><span>Suéltalo <b>encima de otro ejercicio</b>: entra en su bloque. Debajo del nombre del bloque eliges <b>Superserie</b> o <b>Series normales</b>.</span></li><li><span>Toca el nombre del bloque para cambiarlo.</span></li><li><span>Arrastra los del día para cambiar el orden.</span></li><li><span>Toca un ejercicio para poner series, repeticiones, carga y descanso.</span></li></ol><p class="pg-note">En el móvil, mantén el dedo sobre los puntitos para arrastrar.</p></div>`;
+  const {blk,x}=s,ss=pss(blk),other=blk.filter(y=>y!==x).map(y=>y.name),l=lib.find(y=>y.name===x.name)||{};
+  const qs=(f,vals)=>vals.map(v=>`<button class="pg-q" data-p="qv" data-f="${f}" data-v="${esc(v)}" aria-pressed="${String(x[f])===v}">${esc(v)}</button>`).join('');
+  const inp=(f,extra)=>`<input id="pg-${f}" data-pi="${f}" value="${esc(x[f])}" autocomplete="off" ${extra||''}>`;
+  const cardio=isCardio(x);
+  return `<div class="pg-handle"></div><div class="pg-ih"><div><span class="pg-eyb">// ${esc(bname(x.block)||'Sin bloque')}${ss?' · Superserie':''}</span><h3>${esc(x.name)}</h3><small>${esc(xnice(x.cat)||'Sin categoría')}${l.mat?' · '+esc(l.mat):''}</small></div><button class="pg-x" data-p="closeinsp" aria-label="Cerrar">${PI.x}</button></div>
+  <div class="pg-ib">${ss?`<p class="pg-note">Superserie con ${esc(other.join(' y '))}. Las series y el descanso son los mismos para todo el bloque.</p>`:''}
+  <div class="pg-fld"><label for="pg-name">Ejercicio</label>${inp('name','list="lib" class="w"')}</div>
+  <div class="pg-fld"><label for="pg-series">${cardio?'Duración (min)':ss?'Rondas (series del bloque)':'Series'}</label><div class="pg-fl">${inp('series','inputmode="numeric"')}${cardio?'':qs('series',['2','3','4','5'])}</div></div>
+  <div class="pg-fld"><label for="pg-reps">${cardio?'Intensidad':'Repeticiones'}</label><div class="pg-fl">${inp('reps')}${cardio?'':qs('reps',['5','6','8','10','12','15'])}</div></div>
+  ${cardio?'':`<div class="pg-fld"><label for="pg-kg">Carga</label><div class="pg-fl">${inp('kg','class="w" placeholder="20 kg, RIR 2, banda roja…"')}<button class="pg-q" data-p="kg" data-v="-2.5">−2,5</button><button class="pg-q" data-p="kg" data-v="2.5">+2,5</button></div></div>`}
+  <div class="pg-fld"><label for="pg-rest">${ss?'Descanso entre rondas':'Descanso'}</label><div class="pg-fl">${inp('rest')}${qs('rest',['45 s','60 s','90 s','2 min','3 min'])}</div></div>
+  <div class="pg-fld"><label for="pg-tips">Claves técnicas</label><textarea id="pg-tips" data-pi="tips" placeholder="Clave 1; clave 2">${esc(x.tips)}</textarea></div>
+  <div class="pg-fld"><label for="pg-video">Vídeo (archivo o enlace)</label>${inp('video','class="w" inputmode="url" placeholder="videos/ejercicio.mp4 o enlace de YouTube"')}</div>
+  <div class="pg-iacts">${blk.length>1?'<button class="pg-btn sec" data-p="split">Sacar del bloque</button>':''}<button class="pg-btn sec" data-p="dup">Duplicar</button><button class="pg-btn warn" data-p="del">Quitar</button></div></div>`;
+}
+// Repinta solo el día y el resumen (para no perder el foco al escribir)
+function prepaint(){const a=document.getElementById('pg-day'),b=document.getElementById('pg-sum');if(a)a.innerHTML=pdayHTML();if(b)b.innerHTML=psumHTML()}
+let ptt;function ptoast(msg,undo){let t=document.getElementById('pg-toast');if(!t){t=document.createElement('div');t.id='pg-toast';t.className='pg-toast';document.body.append(t)}
+  t.innerHTML=`<span>${esc(msg)}</span>${undo?'<button data-p="undo">Deshacer</button>':''}`;t.hidden=false;clearTimeout(ptt);ptt=setTimeout(()=>{t.hidden=true},undo?5000:2200)}
+function pflash(id){setTimeout(()=>{const e=document.querySelector(`.pg-ex[data-id="${id}"]`);if(e){e.classList.add('new');e.scrollIntoView({block:'nearest',behavior:'smooth'})}},0)}
+const psnap=()=>{S.p.undo=JSON.stringify(edit.model)};
+
+/* colocar un ejercicio: desde la base ({lib:i}) o moviéndolo ({id}); destino {gap:i} = bloque nuevo, {b,pos} = dentro del bloque b */
+function pfromLib(i){const l=lib[i];return {id:uid(),block:'',cat:l.cat||'',name:l.name,series:'3',reps:'10',kg:'',rest:'60 s',video:l.video||'',tips:l.tips||'',ss:false}}
+function pplace(src,t){
+  const d=pday(),bs=pblocks(d);let x,keep='';
+  if(src.id){
+    let sb=-1,sp=-1;bs.forEach((b,bi)=>{const p=b.findIndex(y=>y.id===src.id);if(p>=0){sb=bi;sp=p}});if(sb<0)return;x=bs[sb][sp];
+    if(t.gap!=null){if(bs[sb].length===1&&(t.gap===sb||t.gap===sb+1))return}
+    else if(t.b===sb&&(t.pos===sp||t.pos===sp+1))return;
+    psnap();bs[sb].splice(sp,1);const gone=!bs[sb].length;
+    if(t.gap!=null){if(gone&&sb<t.gap)t.gap--}
+    else{if(t.b===sb&&sp<t.pos)t.pos--;if(gone&&sb<t.b)t.b--}
+    if(gone){bs.splice(sb,1);keep=x.block} // un bloque de un solo ejercicio conserva su nombre al moverlo
+  }else{psnap();x=src.x||pfromLib(src.lib)}
+  if(t.gap!=null){x.block=keep||pnew(bs.flat(),t.gap);x.ss=false;bs.splice(t.gap,0,[x])}
+  else{const b=bs[t.b],ss=pss(b);
+    if(!b[0].block){const nm=pnew(bs.flat(),t.b);b.forEach(y=>y.block=nm)}
+    b.forEach(y=>y.ss=ss);x.block=b[0].block;x.ss=ss;if(ss){x.series=b[0].series;x.rest=b[0].rest}b.splice(t.pos,0,x)}
+  pset(d,bs);if(wide())S.p.sel=x.id; // en el móvil no abre la ficha al añadir o mover
+  render();pflash(x.id);
+  if(!src.id&&!wide())ptoast(x.name+' añadido');
+}
+
+/* arrastrar con ratón o dedo (Pointer Events: Mac, iPhone y Android) */
+let pdg=null,pjust=false;
+function ptarget(cx,cy){
+  const el=document.elementFromPoint(cx,cy);if(!el)return null;const bs=pblocks(pday());
+  const g=el.closest('.pg-gap');if(g)return {el:g,cls:'ov',t:{gap:+g.dataset.at},txt:'Nuevo bloque'};
+  const ex=el.closest('.pg-ex');if(ex){const r=ex.getBoundingClientRect(),after=cy>r.top+r.height/2,b=+ex.dataset.b;return {el:ex,cls:after?'ov-b':'ov-t',t:{b,pos:+ex.dataset.p2+(after?1:0)},txt:'Al bloque '+(bname(bs[b][0].block)||'sin nombre')}}
+  const bk=el.closest('.pg-blk');if(bk){const b=+bk.dataset.b;return {el:bk,cls:'ov',t:{b,pos:bs[b].length},txt:'Al bloque '+(bname(bs[b][0].block)||'sin nombre')}}
+  if(el.closest('.pg-plan'))return {el:null,t:{gap:bs.length},txt:'Nuevo bloque'};
+  return null;
+}
+const pclear=()=>document.querySelectorAll('.pg .ov,.pg .ov-t,.pg .ov-b').forEach(e=>e.classList.remove('ov','ov-t','ov-b'));
+function pstart(){
+  pdg.on=true;const root=document.getElementById('pg');root&&root.classList.add('dragging');
+  const g=document.createElement('div');g.className='pg-drg';g.innerHTML=`<b>${esc(pdg.name)}</b><small>Suelta en el día</small>`;document.body.append(g);pdg.g=g;
+  if(pdg.src.id){const e=document.querySelector(`.pg-ex[data-id="${pdg.src.id}"]`);e&&e.classList.add('src')}
+  navigator.vibrate&&navigator.vibrate(15);pmove(pdg.x,pdg.y);pauto();
+}
+function pmove(cx,cy){
+  pdg.x=cx;pdg.y=cy;pdg.g.style.left=cx+'px';pdg.g.style.top=cy+'px';
+  pclear();const h=ptarget(cx,cy);pdg.h=h;if(h&&h.el)h.el.classList.add(h.cls);
+  pdg.g.querySelector('small').textContent=h?'→ '+h.txt:'Suelta en el día';
+}
+function pauto(){if(!pdg||!pdg.on)return;const m=70;let v=0;if(pdg.y<m)v=-12;else if(pdg.y>innerHeight-m-(wide()?0:70))v=12;if(v){scrollBy(0,v);pmove(pdg.x,pdg.y)}requestAnimationFrame(pauto)}
+function pend(drop){
+  if(!pdg)return;clearTimeout(pdg.lp);const d=pdg;pdg=null;
+  if(!d.on)return;
+  pjust=true;setTimeout(()=>{pjust=false},50);pclear();d.g.remove();
+  const root=document.getElementById('pg');if(root)root.classList.remove('dragging');
+  document.querySelectorAll('.pg-ex.src').forEach(e=>e.classList.remove('src'));
+  if(drop&&d.h){if(d.src.lib!=null&&!wide())S.p.lib=false;pplace(d.src,d.h.t)}
+}
+document.addEventListener('pointerdown',e=>{
+  if(!edit||e.button||!e.target.closest)return;
+  const ex=e.target.closest('.pg-ex'),li=e.target.closest('.pg-li');
+  if(!ex&&!li||e.target.closest('button,input'))return;
+  const touch=e.pointerType!=='mouse',onGrip=!!e.target.closest('.pg-grip');
+  pdg={src:ex?{id:ex.dataset.id}:{lib:+li.dataset.lib},name:(ex||li).querySelector('b').textContent,x0:e.clientX,y0:e.clientY,x:e.clientX,y:e.clientY,on:false,ready:!touch||onGrip};
+  // Con el dedo fuera de los puntitos: mantener pulsado 0,35 s para arrastrar (así deslizar sigue haciendo scroll)
+  if(touch&&!onGrip)pdg.lp=setTimeout(()=>{if(pdg){pdg.ready=true;pstart()}},350);
+});
+addEventListener('pointermove',e=>{
+  if(!pdg)return;if(pdg.on){pmove(e.clientX,e.clientY);return}
+  const dist=Math.hypot(e.clientX-pdg.x0,e.clientY-pdg.y0);
+  if(!pdg.ready){if(dist>8){clearTimeout(pdg.lp);pdg=null}return}
+  if(dist>6){pdg.x=e.clientX;pdg.y=e.clientY;pstart()}
+});
+addEventListener('pointerup',()=>pend(true));
+addEventListener('pointercancel',()=>{if(pdg&&pdg.on)return;pend(false)});
+document.addEventListener('touchmove',e=>{if(pdg&&(pdg.on||pdg.ready)){e.preventDefault();const p=e.touches[0];if(pdg.on&&p)pmove(p.clientX,p.clientY)}},{passive:false});
+// Respaldo por si el navegador corta los eventos de puntero durante el arrastre con el dedo
+document.addEventListener('touchend',()=>{if(pdg&&pdg.on)pend(true)});
+document.addEventListener('contextmenu',e=>{if(edit&&e.target.closest&&e.target.closest('.pg-ex,.pg-li'))e.preventDefault()});
+document.addEventListener('scroll',e=>{if(e.target&&e.target.id==='pg-ll')S.p.ls=e.target.scrollTop},true);
+
+/* progresión al copiar semana */
+const pfmt=v=>String(Math.round(v*100)/100).replace('.',',');
+function pbumpKg(v,d){if(!d)return v;const m=String(v).match(/^(\D*?)(\d+(?:[.,]\d+)?)(\s*(?:kg.*)?)$/i);if(!m||/[a-z]/i.test(m[1]))return v;return m[1]+pfmt(Math.max(0,parseFloat(m[2].replace(',','.'))+d))+m[3]}
+function pbumpReps(v,d){if(!d)return v;v=String(v);let m;if(m=v.match(/^(\d+)$/))return String(+m[1]+d);if(m=v.match(/^(\d+)\s*-\s*(\d+)$/))return (+m[1]+d)+'-'+(+m[2]+d);return v}
+function pprogHTML(){
+  const m=edit.model,w=m.weeks[S.w],P=S.p.P,n=m.weeks.length+1;
+  const o=(k,vals,lab)=>`<div class="pg-fld"><label>${lab}</label><div class="pg-fl">${vals.map(v=>`<button class="pg-q" data-p="pv" data-k="${k}" data-v="${v}" aria-pressed="${P[k]===v}">${v>0?'+':''}${pfmt(v)}</button>`).join('')}</div></div>`;
+  return `<div class="pg-modal" data-pmodal><div class="pg-mbox" role="dialog" aria-label="Copiar con progresión"><div class="pg-mhd"><span class="pg-eyb">// Progresión · Semana ${n}</span><h3>Copiar ${esc(w.name)}</h3></div>
+  <p>Crea la Semana ${n} igual que ${esc(w.name)} y aplica estos cambios a todos los ejercicios. La carga solo cambia cuando es un número de kg.</p>
+  ${o('kg',[0,1,2.5,5],'Carga (kg)')}${o('reps',[0,1,2],'Repeticiones')}${o('series',[0,1],'Series')}
+  <div class="pg-iacts end"><button class="pg-btn sec" data-p="closeprog">Cancelar</button><button class="pg-btn" data-p="doprog">Crear Semana ${n}</button></div></div></div>`;
+}
+
+/* clics, escritura y cambios del programador */
+function pclick(e){
+  if(pjust){e.preventDefault();return true}
+  const t=e.target.closest('button'),P=S.p;
+  if(!t){
+    if(e.target.matches('[data-pscrim]')){P.lib=false;P.sel=null;render();return true}
+    if(e.target.matches('[data-pmodal]')){P.prog=false;render();return true}
+    const ex=e.target.closest('.pg-ex');if(ex){P.sel=ex.dataset.id;render();return true}
+    return false;
+  }
+  const a=t.dataset.p;if(!a)return false;
+  const k=t.dataset.k,tog=(set,v)=>set.has(v)?set.delete(v):set.add(v),s=pfind();
+  if(a==='openlib')P.lib=true;
+  else if(a==='closelib')P.lib=false;
+  else if(a==='closeinsp')P.sel=null;
+  else if(a==='addlib'){pplace({lib:+t.dataset.i},{gap:pblocks(pday()).length});return true}
+  else if(a==='free'){pplace({x:{id:uid(),block:'',cat:'',name:'Nuevo ejercicio',series:'3',reps:'10',kg:'',rest:'60 s',video:'',tips:'',ss:false}},{gap:pblocks(pday()).length});P.sel=pday().items[pday().items.length-1].id;render();return true}
+  else if(a==='fopen')P.fopen=!P.fopen;
+  else if(a==='tf')tog(P.fo,k);
+  else if(a==='tfg')tog(P.fg,k);
+  else if(a==='clrcat')P.cats.clear();
+  else if(a==='clrall'){P.cats.clear();P.vids.clear();if(xlib.have){xlib.have=null;saveLib()}}
+  else if(a==='allmat'){xlib.have=null;saveLib()}
+  else if(a==='nomat'){xlib.have=[];saveLib()}
+  else if(a==='bmode'){psnap();const b=pblocks(pday())[+t.dataset.b];if(b){if(t.dataset.m==='ss')syncSS({items:b});else b.forEach(y=>y.ss=false)}}
+  else if(a==='prog')P.prog=true;
+  else if(a==='closeprog')P.prog=false;
+  else if(a==='pv')P.P[k]=+t.dataset.v;
+  else if(a==='doprog'){const m=edit.model,c=JSON.parse(JSON.stringify(m.weeks[S.w]));c.name='Semana '+(m.weeks.length+1);
+    c.days.forEach(d=>d.items.forEach(x=>{x.id=uid();if(!isCardio(x)){x.kg=pbumpKg(x.kg,P.P.kg);x.reps=pbumpReps(x.reps,P.P.reps)}if(P.P.series&&/^\d+$/.test(x.series))x.series=String(+x.series+P.P.series)}));
+    m.weeks.push(c);S.w=m.weeks.length-1;S.d=0;P.sel=null;P.prog=false;render();ptoast(c.name+' creada');return true}
+  else if(a==='undo'){if(P.undo){edit.model=JSON.parse(P.undo);P.undo=null;P.sel=null;const tt=document.getElementById('pg-toast');if(tt)tt.hidden=true}}
+  else if(s&&a==='qv'){const f=t.dataset.f;(pss(s.blk)&&(f==='series'||f==='rest')?s.blk:[s.x]).forEach(y=>y[f]=t.dataset.v)}
+  else if(s&&a==='kg'){const m=String(s.x.kg).match(/(\d+(?:[.,]\d+)?)/),base=m?parseFloat(m[1].replace(',','.')):0,v=pfmt(Math.max(0,base+ +t.dataset.v));s.x.kg=m?String(s.x.kg).replace(m[1],v):v+' kg'}
+  else if(s&&a==='del'){psnap();const bs=pblocks(pday());bs[s.b].splice(s.p,1);pset(pday(),bs);P.sel=null;render();ptoast(s.x.name+' quitado',true);return true}
+  else if(s&&a==='dup'){psnap();const c={...s.x,id:uid(),ss:false},bs=pblocks(pday());c.block=pnew(pday().items,s.b+1);bs.splice(s.b+1,0,[c]);pset(pday(),bs);P.sel=c.id;render();pflash(c.id);return true}
+  else if(s&&a==='split'){pplace({id:s.x.id},{gap:s.b+1});P.sel=s.x.id;render();return true}
+  else return false;
+  render();return true;
+}
+function pinput(t){
+  if(t.id==='pg-q'){S.p.q=t.value;S.p.ls=0;const l=document.getElementById('pg-ll');if(l){l.innerHTML=plibListHTML();l.scrollTop=0}return true}
+  const f=t.dataset.pi,s=f&&pfind();if(!s)return !!f;
+  (pss(s.blk)&&(f==='series'||f==='rest')?s.blk:[s.x]).forEach(y=>y[f]=t.value);
+  prepaint();document.querySelectorAll(`.pg-insp .pg-q[data-f="${f}"]`).forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===t.value));
+  return true;
+}
+function pchange(t){
+  const d=t.dataset;
+  if(d.wf||d.df){render();return true}
+  // Nombre de un ejercicio de la base: trae su categoría, vídeo y claves
+  if(d.pi==='name'){const s=pfind(),l=lib.find(x=>x.name===t.value);if(s&&l){s.x.cat=l.cat||s.x.cat;s.x.video=l.video||'';if(l.tips)s.x.tips=l.tips}render();return true}
+  if(d.bn!=null){const bs=pblocks(pday()),i=+d.bn;if(!bs[i])return true;let v=t.value.trim()||pnew(pday().items,i);
+    // Dos bloques seguidos con el mismo nombre se juntarían: se añade un número
+    const nb=j=>bs[j]&&bname(bs[j][0].block)===v;if(nb(i-1)||nb(i+1))v+=' 2';
+    psnap();bs[i].forEach(y=>y.block=v);render();return true}
+  if(d.pf){const f=d.pf,v=t.value,P=S.p;
+    if(f==='gen')xgroups().find(g=>g.key===v).cats.forEach(c=>t.checked?P.cats.add(c):P.cats.delete(c));
+    else if(f==='cat')t.checked?P.cats.add(v):P.cats.delete(v);
+    else if(f==='vid')t.checked?P.vids.add(v):P.vids.delete(v);
+    else if(f==='mat'){const h=new Set(xlib.have||xallMats());t.checked?h.add(v):h.delete(v);xlib.have=h.size===xallMats().length?null:[...h];saveLib()}
+    render();return true}
+  return false;
+}
+
 /* ---------- render ---------- */
 function render(){
   let h;
@@ -632,12 +887,14 @@ function render(){
     case 'coach':h=coachView();break;
     default:h=clientView();
   }
-  document.getElementById('app').innerHTML=`<div class="wrap${S.state==='coach'&&wide()?(edit||S.prevOn?' wed':' wide'):''}">${S.off?'<div class="offb" role="status">Sin conexión. Vuelve a conectarte para guardar o enviar.</div>':''}${h}</div>`;
+  document.getElementById('app').innerHTML=`<div class="wrap${S.state==='coach'&&wide()?(S.prevOn?' wed':' wide'):''}">${S.off?'<div class="offb" role="status">Sin conexión. Vuelve a conectarte para guardar o enviar.</div>':''}${h}</div>`;
   let dl=document.getElementById('lib');
   if(!dl){dl=document.createElement('datalist');dl.id='lib';document.body.append(dl)}
   document.querySelectorAll('.cl').forEach(e=>{e.scrollTop=e.scrollHeight});
   dl.innerHTML=lib.map(x=>`<option value="${esc(x.name)}">`).join('');
   document.querySelectorAll('[data-ind]').forEach(x=>{x.indeterminate=true});
+  document.body.classList.toggle('pgon',S.state==='coach'&&!!edit&&!S.prevOn);
+  const pl=document.getElementById('pg-ll');if(pl)pl.scrollTop=S.p.ls;
 }
 
 /* ---------- acciones ---------- */
@@ -811,7 +1068,7 @@ async function importXlsx(file){
   }catch(e){edit.imp={err:(e&&e.message)||'No se pudo leer el Excel.'}}
   render();
 }
-function startEdit(kind,data,label){edit={kind,label,model:JSON.parse(JSON.stringify({title:data.title,weeks:data.weeks}))};S.w=0;S.d=0;S.err='';render()}
+function startEdit(kind,data,label){edit={kind,label,model:JSON.parse(JSON.stringify({title:data.title,weeks:data.weeks}))};S.w=0;S.d=0;S.err='';S.p.sel=null;S.p.lib=false;S.p.prog=false;S.p.undo=null;render();scrollTo(0,0)}
 
 /* ---------- eventos ---------- */
 document.addEventListener('submit',async e=>{
@@ -866,6 +1123,7 @@ document.addEventListener('input',e=>{
   if(t.id==='chat-in'){S.chatDraft[isCoach()?selClient:me.id]=t.value;return}
   if(t.id==='exm-t'&&S.exm){S.exm.text=t.value;return}
   if(t.id==='ttl'&&edit){edit.model.title=t.value;return}
+  if(edit&&pinput(t))return;
   if(t.id==='fnote'&&finish){finish.notes=t.value;return}
   if(edit){
     const wk=edit.model.weeks[S.w];
@@ -922,6 +1180,7 @@ document.addEventListener('change',async e=>{
   if(t.dataset&&t.dataset.fld==='reps'&&routine&&S.tab!=='chat'&&!edit){autoNext(t);return}
   if(t.id==='xlsf'&&edit&&t.files&&t.files[0]){importXlsx(t.files[0]);return}
   if(t.id==='xlsc'&&selClient&&t.files&&t.files[0]){importForClient(t.files[0]);return}
+  if(edit&&pchange(t))return;
   if(edit&&t.dataset.f==='name'){
     const l=lib.find(x=>x.name===t.value);
     if(l){const it=edit.model.weeks[S.w].days[S.d].items.find(x=>x.id===t.dataset.id);it.cat=l.cat||it.cat;it.video=l.video||'';setTimeout(render,0)}
@@ -931,6 +1190,7 @@ document.addEventListener('click',e=>{
   if(S.menu&&!e.target.closest('.menuw')){S.menu=false;render()}
   const sm=e.target.closest('summary');
   if(sm&&!e.target.closest('button')&&sm.parentElement.dataset.k){const d=sm.parentElement;setTimeout(()=>{S.ro[d.dataset.k]=d.open},0)}
+  if(edit&&!S.prevOn&&pclick(e))return;
   const t=e.target.closest('button');if(!t)return;
   if(t.dataset.go){const el=document.getElementById(t.dataset.go);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return}
   const y=scrollY;
