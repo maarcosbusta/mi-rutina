@@ -318,3 +318,67 @@ summary:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .chips .kind{background:var(--ks);color:var(--k);font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.08em}
 /* formulario añadir cliente */
 .invf{margin-top:12px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+
+/* vista de escritorio del entrenador (Mac): solo aparece a partir de 1024 px de ancho; el móvil no cambia */
+.wrap.wide{max-width:1480px}
+.wrap.wed{max-width:1100px}
+.desk{display:grid;grid-template-columns:232px 340px minmax(0,1fr);min-height:100vh;margin:0 -16px -40px;background:var(--bg)}
+.desk.nol{grid-template-columns:232px minmax(0,1fr)}
+.dside{position:sticky;top:0;height:100vh;overflow:hidden;background:#0B0B0D;color:#EEF0F4;padding:18px 14px;display:flex;flex-direction:column;gap:22px}
+.dside::before{content:"";position:absolute;left:-40px;right:-40px;bottom:70px;height:30px;background:#FFD400;transform:rotate(-24deg)}
+.dside::after{content:"";position:absolute;left:-40px;right:-40px;bottom:112px;height:7px;background:#1E4FD8;transform:rotate(-24deg)}
+.dside .appbar{margin:0;padding:0;background:none;box-shadow:none;border-radius:0;align-items:flex-start;gap:8px}
+.dside .brand{font-size:17px;align-items:flex-start}
+.dside .bt2 small{display:block;font-size:10.5px;line-height:1.3;margin-top:3px;color:#9AA1B0;opacity:1}
+.dside .pop{left:0;right:auto;color:var(--ink)}
+.dnav{display:grid;gap:4px;position:relative;z-index:1}
+.dnav button{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;border-radius:6px;background:none;color:#EEF0F4;padding:11px 12px;cursor:pointer;font:700 15px var(--display);text-transform:uppercase;letter-spacing:.1em;text-align:left}
+.dnav button:hover{background:#ffffff14}
+.dnav>button[aria-pressed=true]{background:#FFD400;color:#0B0B0D}
+.dnav>button[aria-pressed=true] .dot2{background:#0B0B0D;color:#FFD400}
+.dsub{display:grid;gap:2px;margin:2px 0 6px 14px;padding-left:8px;border-left:2px solid #26282F}
+.dsub button{font-size:13px;padding:8px 10px;color:#9AA1B0}
+.dsub button[aria-pressed=true]{color:#FFD400}
+.dlist{background:var(--surface);border-right:1px solid var(--line);padding:18px 14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.dlist .feed h2{font-size:20px}
+.dhd{display:flex;justify-content:space-between;align-items:center}
+.dhd h2{font:400 30px/1 var(--anton);text-transform:uppercase;letter-spacing:.02em;margin:0}
+.dlist .sin{margin:0}
+.dlist .btn.big{margin-top:0!important}
+.dlist #clist{display:grid;gap:6px}
+.dlist .li{box-shadow:none;border-radius:6px;padding:10px 12px}
+.dlist .li b{font-size:16px}
+.dlist .li[aria-current],.wa[aria-current]{background:var(--chip);border-color:var(--chip);box-shadow:inset 4px 0 0 #FFD400}
+.dmain{min-width:0;padding:22px 26px 40px}
+.dmain>.panel{margin-top:0}
+.dmain>.empty{margin-top:80px}
+/* cabecera negra del cliente */
+.dhero{background:#0B0B0D;color:#fff;border-radius:12px;padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.dht small{font:500 12px var(--mono);color:#FFD400;letter-spacing:.02em}
+.dht h2{font:400 34px/1.05 var(--anton);text-transform:uppercase;letter-spacing:.02em;margin:4px 0 0;overflow-wrap:anywhere}
+.dacts{display:flex;gap:8px;flex-wrap:wrap}
+.dacts .btn{padding:9px 14px;font-size:14px;display:inline-flex;align-items:center}
+.btn.ghost{background:transparent;color:#fff;box-shadow:inset 0 0 0 1.5px #ffffffb3}
+.btn.ghost.blue{color:#8FB0FF;box-shadow:inset 0 0 0 1.5px #8FB0FF;cursor:pointer}
+.dbody{display:grid;gap:12px;margin-top:16px}
+.dh3{font:700 14px var(--display);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:8px 0 0}
+.dnote{display:block;width:100%;text-align:left;background:var(--surface);border:0;border-left:4px solid #FFD400;padding:12px 14px;font:600 15px var(--body);color:var(--ink);cursor:pointer}
+div.dnote{cursor:default}
+.dmain .cl{max-height:none;height:calc(100vh - 290px);min-height:260px}
+/* chats estilo WhatsApp */
+.wal{display:grid;margin:0 -14px}
+.wa{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;border:0;border-top:1px solid var(--line);background:none;padding:11px 14px;text-align:left;cursor:pointer;color:var(--ink);font:inherit}
+.wa:hover{background:var(--bg)}
+.wa .av.sm{display:grid;place-items:center;padding:0;line-height:1;width:40px;height:40px;background:#0B0B0D;color:#FFD400;font:400 16px var(--anton)}
+.wat{display:grid;min-width:0}.wat b{font:700 16px var(--body)}
+.wat small{color:var(--muted);font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wat em{font-style:normal;font-weight:700;color:var(--bad)}
+.wa.un .wat small{color:var(--ink);font-weight:600}
+.wam{display:grid;justify-items:end;gap:4px}.wam small{font:500 11px var(--mono);color:var(--muted)}
+.wa.un .wam small{color:var(--ink)}
+.wan{min-width:22px;height:22px;padding:0 6px;border-radius:99px;background:#FFD400;color:#0B0B0D;display:grid;place-items:center;font:600 12px var(--mono)}
+/* editor más ancho: cada ejercicio en una fila */
+.wed article.card.ed .grid{grid-template-columns:1.3fr 2.2fr repeat(4,minmax(0,1fr))}
+.wed article.card.ed .grid .full{grid-column:auto}
+.wed article.card.ed .grid .full:has([data-f=video]){grid-column:1/3}
+.wed article.card.ed .grid .full:has([data-f=tips]){grid-column:3/-1}

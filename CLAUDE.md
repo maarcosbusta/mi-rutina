@@ -12,10 +12,10 @@ Página estática sin build: GitHub Pages sirve los ficheros tal cual. Backend: 
 
 | Fichero | Qué hay |
 | --- | --- |
-| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`. Lleva `?v=35` para saltarse la caché: súbelo en los tres ficheros al publicar cambios de CSS/JS. |
+| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`. Lleva `?v=36` para saltarse la caché: súbelo en los tres ficheros al publicar cambios de CSS/JS. |
 | `config.js` | URL y clave **anon** de Supabase (pública por diseño; los permisos los dan las políticas RLS). Nunca pongas aquí la clave `service_role`. |
 | `app.js` | Toda la app (~620 líneas). Ver abajo. |
-| `style.css` | Estilos. Bloques: "barra superior", "semanas y días", "progreso y mapa de bloques", "bloque de superserie", "barra fija de sesión", "botones y formularios", "panel del entrenador", "editor del entrenador", "marca Marcos Bustamante", "series desplegables", "tipo de bloque". Tema oscuro en `:root[data-theme="dark"]`. |
+| `style.css` | Estilos. Bloques: "barra superior", "semanas y días", "progreso y mapa de bloques", "bloque de superserie", "barra fija de sesión", "botones y formularios", "panel del entrenador", "editor del entrenador", "marca Marcos Bustamante", "series desplegables", "tipo de bloque", "formulario añadir cliente", "vista de escritorio del entrenador (Mac)". Tema oscuro en `:root[data-theme="dark"]`. |
 | `xlsx-lite.js` | Lector mínimo de .xlsx/.xlsm sin dependencias (lo usa la importación de Excel). |
 
 ## app.js por secciones
@@ -27,6 +27,7 @@ Cabeceras `/* ---------- X ---------- */`:
 - **"acceso"**: `loginView`, `setpwView` (invitación y recuperar contraseña), `offlineView`, `welcomeHTML`. Requisitos de contraseña en `const PWR` (8+ caracteres, mayúscula, minúscula, número y símbolo) y comprobación de contraseñas filtradas en `pwned` (Have I Been Pwned por k-anonimato; si el servicio no responde, no bloquea). Deben coincidir con lo configurado en Supabase > Authentication > Passwords.
 - **"cliente"**: `clientRoutine` (pantalla principal de entrenamiento), `groupsOf`/`isSS`/`syncSS` (superseries), `dget` (borrador de series), `lastSets`/`lastFor` ("Última vez"), descanso (`startRest`, `restBar`), `chatHTML`, `sessionHTML` (historial), `clientView`.
 - **"entrenador"**: `coachView` (pestañas Clientes / Actividad / Plantilla), `inviteHTML` (botón «+ Añadir cliente» y formulario `fInvite`, estado `S.inv`), `feedHTML`, `msgsHTML`, `newHTML`, `previewView`, `editorView`, `importCard`.
+- **"vista de escritorio (Mac)"**: a partir de 1024 px de ancho (`wide()`), `coachView` llama a `deskView`: menú lateral (Clientes / Actividad › Chats y Sesiones / Plantilla, subapartado en `S.sub`), lista en el centro y detalle a la derecha. `chatsHTML` (chats estilo WhatsApp con el número de no leídos, filtro `S.cf`), `fichaHTML` (ficha del cliente sin chat) y `deskHero`. En el Mac los mensajes solo se marcan leídos con el chat abierto (`deskChat`). El editor y la vista previa van a pantalla ancha (`.wrap.wed`). En el móvil no cambia nada.
 - **"render"**: `render()` repinta todo desde el estado `S` (no hay framework).
 - **"acciones"**: `act(a,t)` gestiona cada botón según su `data-act` (guardar sesión `savesession`, editor `saveed`, chat `chatsend`...).
 - **"importar Excel (hoja Plan_SS1)"**: `parsePlan`, `importForClient`, `importXlsx`.

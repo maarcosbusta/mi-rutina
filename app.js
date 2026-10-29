@@ -272,7 +272,7 @@ function chatHTML(cid){
     return `<div class="cmsg ${mine?'me':''}">${m.ex_name?`<span class="mctx">🏋️ ${esc(m.ex_name)}${m.ctx?' · '+esc(m.ctx):''}</span>`:(m.ctx?`<span class="mctx">${esc(m.ctx)}</span>`:'')}${m.kind?`<span class="mk k-${m.kind}">${KIND[m.kind]}</span>`:''}<p>${esc(m.body)}</p><small>${esc(ftime(m.created_at))}${mine&&i===li&&m.read_at?' · ✓ Visto':''}</small></div>`}).join(''):'<p class="hint" style="margin:auto;text-align:center">Aún no hay mensajes. Escribe el primero.</p>';
   return `<div class="chat"><div class="cl" role="log">${list}</div><div class="kq">${Object.keys(KIND).map(k=>`<button class="kc ${S.chatKind===k?'on':''}" data-act="ckind" data-k="${k}" aria-pressed="${S.chatKind===k}">${KIND[k]}</button>`).join('')}</div><div class="cmf"><input id="chat-in" maxlength="1000" autocomplete="off" placeholder="${isCoach()?'Escribe al cliente…':'Escribe a tu entrenador…'}" value="${esc(S.chatDraft[cid]||'')}" aria-label="Mensaje"><button class="btn sec" data-act="chatsend" data-cid="${esc(cid)}">Enviar</button></div></div>`;
 }
-function clistHTML(){const q=(S.q||'').trim().toLowerCase(),L=q?clients.filter(c=>(label(c)+' '+(c.email||'')).toLowerCase().includes(q)):clients;return L.length?L.map(c=>`<button class="li" data-act="pick" data-id="${esc(c.id)}"><span class="who"><span class="av sm">${esc(initial(c))}</span><span><b>${esc(label(c))}</b><small>${assigned.has(c.id)?'Rutina asignada':'Sin rutina'}</small></span></span>${unreadIn(c.id).length?`<span class="tag warn">${unreadIn(c.id).length} nuevo${unreadIn(c.id).length>1?'s':''}</span>`:`<span class="tag ${assigned.has(c.id)?'ok':''}">${assigned.has(c.id)?'Activo':'Pendiente'}</span>`}</button>`).join(''):q?'<div class="empty">Ningún cliente coincide.</div>':'<div class="empty">Aún no hay clientes. Pulsa «+ Añadir cliente» y escribe su correo. Aparecerán aquí cuando acepten la invitación.</div>'}
+function clistHTML(){const q=(S.q||'').trim().toLowerCase(),L=q?clients.filter(c=>(label(c)+' '+(c.email||'')).toLowerCase().includes(q)):clients;return L.length?L.map(c=>`<button class="li" data-act="pick" data-id="${esc(c.id)}"${c.id===selClient?' aria-current="true"':''}><span class="who"><span class="av sm">${esc(initial(c))}</span><span><b>${esc(label(c))}</b><small>${assigned.has(c.id)?'Rutina asignada':'Sin rutina'}</small></span></span>${unreadIn(c.id).length?`<span class="tag warn">${unreadIn(c.id).length} nuevo${unreadIn(c.id).length>1?'s':''}</span>`:`<span class="tag ${assigned.has(c.id)?'ok':''}">${assigned.has(c.id)?'Activo':'Pendiente'}</span>`}</button>`).join(''):q?'<div class="empty">Ningún cliente coincide.</div>':'<div class="empty">Aún no hay clientes. Pulsa «+ Añadir cliente» y escribe su correo. Aparecerán aquí cuando acepten la invitación.</div>'}
 // Añadir cliente: el entrenador escribe el correo y le llega la invitación
 function inviteHTML(){const v=S.inv;if(!v)return '<button class="btn big" data-act="addcli" style="margin-top:10px">+ Añadir cliente</button>';
   return `<form class="auth invf" id="fInvite"><label>Correo del cliente<input type="email" id="inem" autocomplete="off" required placeholder="cliente@correo.com" value="${esc(v.em||'')}"></label><p class="hint" style="margin:0">Le llegará un correo para crear su contraseña. Aparecerá en tu lista cuando entre por primera vez.</p>${v.err?`<div class="err" role="alert">${esc(v.err)}</div>`:''}${v.ok?`<div class="ok" role="status">${esc(v.ok)}</div>`:''}<button class="btn big" ${v.busy?'disabled':''}>${v.busy?'Enviando…':'Enviar invitación'}</button><button type="button" class="linkb" data-act="addclix">Cerrar</button></form>`}
@@ -335,6 +335,7 @@ function previewView(){
 function coachView(){
   if(S.prevOn&&routine)return previewView();
   if(edit)return editorView();
+  if(wide())return deskView();
   const tabs=`<div class="seg"><button data-tab="clientes" aria-pressed="${S.tab==='clientes'}">Clientes</button><button data-tab="actividad" aria-pressed="${S.tab==='actividad'}">Actividad${actN()?` <span class="dot2">${actN()}</span>`:''}</button><button data-tab="plantilla" aria-pressed="${S.tab==='plantilla'}">Plantilla</button></div>`;
   let body='';
   const sel=clients.find(c=>c.id===selClient);
@@ -363,6 +364,65 @@ function editorView(){
    +`<button class="btn sec" data-act="addex" style="width:100%;padding:14px">+ Añadir ejercicio</button></main><div class="coach"><span>${esc(edit.label)}</span><button class="btn sec" data-act="canceled">Cancelar</button><button class="btn" data-act="saveed" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar'}</button>${S.err?`<div class="msg" role="alert">${esc(S.err)}</div>`:''}</div>`;
 }
 
+/* ---------- vista de escritorio (Mac) ---------- */
+// En pantallas anchas el entrenador ve menú lateral + lista + detalle. En el móvil todo sigue igual.
+const WIDE=matchMedia('(min-width:1024px)');
+const wide=()=>WIDE.matches;
+WIDE.addEventListener('change',()=>render());
+S.sub='chats';S.cf='all';
+const deskChat=()=>S.tab==='actividad'&&S.sub==='chats';
+// Hora corta estilo WhatsApp: 10:42, Ayer o 3 oct
+const wtime=iso=>{const d=new Date(iso),n=new Date();if(isNaN(d))return '';const y=new Date(n);y.setDate(n.getDate()-1);
+  if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  if(d.toDateString()===y.toDateString())return 'Ayer';
+  return d.toLocaleDateString('es-ES',{day:'numeric',month:'short'}).replace('.','')};
+function chatsHTML(){
+  const last={};msgs.forEach(m=>{last[m.client_id]=m});
+  const pain=id=>msgs.some(m=>m.client_id===id&&m.author_id===id&&m.kind==='molestia'&&Date.now()-new Date(m.created_at)<14*864e5);
+  let L=clients.map(c=>({c,l:last[c.id],n:unreadIn(c.id).length}));
+  if(S.cf==='un')L=L.filter(x=>x.n);else if(S.cf==='pain')L=L.filter(x=>pain(x.c.id));
+  L.sort((a,b)=>(b.l?b.l.created_at:'').localeCompare(a.l?a.l.created_at:'')||label(a.c).localeCompare(label(b.c)));
+  const f=(k,t)=>`<button class="kc ${S.cf===k?'on':''}" data-act="cf" data-k="${k}" aria-pressed="${S.cf===k}">${t}</button>`;
+  const row=({c,l,n})=>{const mine=l&&l.author_id===me.id;
+    return `<button class="wa${n?' un':''}" data-act="pickchat" data-id="${esc(c.id)}"${c.id===selClient?' aria-current="true"':''}><span class="av sm">${esc(initial(c))}</span><span class="wat"><b>${esc(label(c))}</b><small>${l?(mine?'Tú: ':'')+(l.kind==='molestia'&&!mine?'<em>Molestia ·</em> ':'')+esc(l.body):'Sin mensajes'}</small></span><span class="wam"><small>${l?esc(wtime(l.created_at)):''}</small>${n?`<span class="wan" aria-label="${n} sin leer">${n}</span>`:''}</span></button>`};
+  return `<div class="dhd"><h2>Chats</h2></div><div class="kq">${f('all','Todos')}${f('un','Sin leer')}${f('pain','Molestias')}</div><div class="wal">${L.map(row).join('')||'<p class="hint">Nada por aquí.</p>'}</div>`;
+}
+// Cabecera negra del cliente con sus acciones
+function deskHero(sel,acts){
+  return `<div class="dhero"><div class="dht"><small>// ${esc(sel.email||'')}</small><h2>${esc(label(sel))}</h2></div><div class="dacts">${acts}</div></div>`;
+}
+function fichaHTML(sel){
+  const has=assigned.has(sel.id),n=unreadIn(sel.id).length;
+  const acts=(has?`<button class="btn" data-act="editr">Editar rutina</button><button class="btn ghost" data-act="preview">Ver como cliente</button>`:`<button class="btn" data-act="assign" ${tpl?'':'disabled'}>Asignar plantilla base</button>`)
+    +`<label class="btn ghost blue" for="xlsc">Cargar Excel</label><input type="file" id="xlsc" accept=".xlsm,.xlsx" hidden><button class="btn ghost" data-act="sub" data-k="chats" data-keep>Chat${n?` <span class="dot2">${n}</span>`:''}</button>`;
+  return deskHero(sel,acts)+`<div class="dbody">${!has?`<div class="dnote">Este cliente aún no tiene rutina.${tpl?'':' Crea primero la plantilla base.'}</div>`:''}${n?`<button class="dnote" data-act="sub" data-k="chats" data-keep>Tiene ${n} mensaje${n>1?'s':''} sin leer. Abrir chat →</button>`:''}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<div class="ed2" style="display:flex;gap:8px"><input id="cname" value="${esc(sel.name||'')}" placeholder="Nombre del cliente" aria-label="Nombre del cliente"><button class="btn sec" data-act="savename">Guardar</button></div><h3 class="dh3">Sesiones registradas</h3>${cSessions.length?cSessions.map(sessionHTML).join(''):'<div class="empty">Todavía no ha registrado sesiones.</div>'}</div>`;
+}
+function deskView(){
+  const nc=clients.reduce((k,c)=>k+unreadIn(c.id).length,0),na=actN(),ns=Math.max(0,na-nc);
+  const sel=clients.find(c=>c.id===selClient);
+  const b=n=>n?`<span class="dot2">${n}</span>`:'';
+  const nav=`<div class="dnav"><button data-tab="clientes" aria-pressed="${S.tab==='clientes'}">Clientes</button><button data-tab="actividad" aria-pressed="${S.tab==='actividad'}">Actividad${b(na)}</button>${S.tab==='actividad'?`<div class="dsub"><button data-act="sub" data-k="chats" aria-pressed="${S.sub==='chats'}">Chats${b(nc)}</button><button data-act="sub" data-k="ses" aria-pressed="${S.sub!=='chats'}">Sesiones${b(ns)}</button></div>`:''}<button data-tab="plantilla" aria-pressed="${S.tab==='plantilla'}">Plantilla</button></div>`;
+  const side=`<aside class="dside">${topbar()}${nav}</aside>`;
+  const pick=t=>`<div class="empty">${t}</div>`;
+  let list='',main='';
+  if(S.tab==='plantilla'){
+    main=`<main class="panel"><h2>Plantilla base</h2><p class="hint">Es la rutina que se copia a un cliente nuevo. Cambiarla no modifica las rutinas ya asignadas.</p>${tpl?`<button class="btn big" data-act="edittpl">Editar plantilla</button>`:'<div class="empty">Aún no hay plantilla base.</div><button class="btn big" data-act="newtpl">Crear plantilla vacía</button>'}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}</main>`;
+    return `<div class="desk nol">${side}<section class="dmain">${main}</section></div>`;
+  }
+  if(S.tab==='actividad'&&S.sub==='chats'){
+    list=chatsHTML();
+    main=sel?deskHero(sel,`<button class="btn ghost" data-act="ficha">Ver ficha</button>`)+`<div class="dbody">${chatHTML(sel.id)}</div>`:pick('Elige un chat de la lista.');
+  }else if(S.tab==='actividad'){
+    const nw=newHTML(),fd=feedHTML();
+    list=`<div class="dhd"><h2>Sesiones</h2></div>${nw}${fd}${!nw&&!fd?'<div class="empty">Aún no hay actividad de tus clientes.</div>':''}`;
+    main=sel?fichaHTML(sel):pick('Elige una sesión o un cliente nuevo.');
+  }else{
+    list=`<div class="dhd"><h2>Clientes</h2><button class="sbtn" data-act="reload" aria-label="Actualizar lista" title="Actualizar lista"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button></div><input id="cq" class="sin" type="search" placeholder="Buscar cliente" value="${esc(S.q||'')}" autocomplete="off">${inviteHTML()}<div id="clist">${clistHTML()}</div>`;
+    main=sel?fichaHTML(sel):pick('Elige un cliente de la lista.');
+  }
+  return `<div class="desk">${side}<section class="dlist">${list}</section><section class="dmain">${main}</section></div>`;
+}
+
 /* ---------- render ---------- */
 function render(){
   let h;
@@ -375,7 +435,7 @@ function render(){
     case 'coach':h=coachView();break;
     default:h=clientView();
   }
-  document.getElementById('app').innerHTML=`<div class="wrap">${S.off?'<div class="offb" role="status">Sin conexión. Vuelve a conectarte para guardar o enviar.</div>':''}${h}</div>`;
+  document.getElementById('app').innerHTML=`<div class="wrap${S.state==='coach'&&wide()?(edit||S.prevOn?' wed':' wide'):''}">${S.off?'<div class="offb" role="status">Sin conexión. Vuelve a conectarte para guardar o enviar.</div>':''}${h}</div>`;
   let dl=document.getElementById('lib');
   if(!dl){dl=document.createElement('datalist');dl.id='lib';document.body.append(dl)}
   document.querySelectorAll('.cl').forEach(e=>{e.scrollTop=e.scrollHeight});
@@ -391,7 +451,7 @@ async function act(a,t){
     inp.disabled=true;const {error}=await sb.from('session_comments').insert({session_id:sid,author_id:me.id,body});
     if(error){inp.disabled=false;alert('No se pudo enviar: '+error.message);return}
     S.cmd[sid]='';await loadComments([sid]);render();const n=document.getElementById('cm-'+sid);if(n)n.focus();return}
-  if(a==='openses'){selClient=t.dataset.cid;S.open.add(t.dataset.sid);markSeen(t.dataset.sid);S.err='';cSessions=[];render();loadClientSessions(selClient);markRead(selClient);return}
+  if(a==='openses'){selClient=t.dataset.cid;S.open.add(t.dataset.sid);markSeen(t.dataset.sid);S.err='';cSessions=[];render();loadClientSessions(selClient);if(!wide())markRead(selClient);return}
   if(a==='seen'){markSeen(t.dataset.sid);render();return}
   if(a==='ckind'){S.chatKind=S.chatKind===t.dataset.k?null:t.dataset.k;render();return}
   if(a==='mf'){S.mf=t.dataset.k;render();return}
@@ -446,7 +506,11 @@ async function act(a,t){
   if(a==='addcli'){S.inv={em:''};render();const i=document.getElementById('inem');i&&i.focus();return}
   if(a==='addclix'){S.inv=null;render();return}
   if(a==='search'){S.q=S.q==null?'':null;render();if(S.q!=null){const q=document.getElementById('cq');q&&q.focus()}return}
-  if(a==='pick'){selClient=t.dataset.id;S.err='';cSessions=[];render();loadClientSessions(selClient);markRead(selClient);return}
+  if(a==='pick'){selClient=t.dataset.id;S.err='';cSessions=[];render();loadClientSessions(selClient);if(!wide())markRead(selClient);return}
+  if(a==='pickchat'){selClient=t.dataset.id;S.err='';cSessions=[];render();loadClientSessions(selClient);markRead(selClient);return}
+  if(a==='sub'){S.tab='actividad';S.sub=t.dataset.k;if(t.dataset.keep==null)selClient=null;S.err='';render();if(S.sub==='chats'&&selClient)markRead(selClient);return}
+  if(a==='ficha'){S.tab='clientes';S.err='';render();return}
+  if(a==='cf'){S.cf=t.dataset.k;render();return}
   if(a==='backc'){selClient=null;S.err='';render();return}
   if(a==='savename'){const v=document.getElementById('cname').value.trim();const {error}=await sb.from('profiles').update({name:v||null}).eq('id',selClient);if(error)S.err=werr(error);else{S.err='';clients.find(c=>c.id===selClient).name=v}render();return}
   if(a==='newtpl'){const d={title:'Mi rutina',weeks:[{name:'Semana 1',days:[{name:'Día 1',items:[]}]}]};const {error}=await sb.from('templates').upsert({id:'base',data:d});if(error){S.err=werr(error);render()}else{tpl=d;render()}return}
@@ -677,7 +741,7 @@ document.addEventListener('click',e=>{
 boot();
 
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList&&(e.target.classList.contains('cm-in')||e.target.id==='chat-in')){e.preventDefault();const b=e.target.parentElement.querySelector('[data-act=cmsend],[data-act=chatsend]');if(b)b.click()}});
-setInterval(async()=>{if(!me||!sb||document.hidden||S.exm||S.state==='login')return;try{await loadMsgs();if(isCoach()){const [c,r]=await Promise.all([sb.from('profiles').select('id,email,name,role').eq('role','client').order('email'),sb.from('routines').select('client_id')]);if(!c.error&&!r.error){clients=c.data||[];assigned=new Set((r.data||[]).map(x=>x.client_id))}}const c=isCoach()?selClient:(S.tab==='chat'?me.id:null);if(c)await markRead(c);soft()}catch(e){}},15000);
+setInterval(async()=>{if(!me||!sb||document.hidden||S.exm||S.state==='login')return;try{await loadMsgs();if(isCoach()){const [c,r]=await Promise.all([sb.from('profiles').select('id,email,name,role').eq('role','client').order('email'),sb.from('routines').select('client_id')]);if(!c.error&&!r.error){clients=c.data||[];assigned=new Set((r.data||[]).map(x=>x.client_id))}}const c=isCoach()?(!wide()||deskChat()?selClient:null):(S.tab==='chat'?me.id:null);if(c)await markRead(c);soft()}catch(e){}},15000);
 document.addEventListener('toggle',e=>{const d=e.target;if(d.matches&&d.matches('details.ses')){const id=d.dataset.sid;if(d.open)S.open.add(id);else S.open.delete(id)}},true);
 
 addEventListener('offline',()=>{S.off=true;render()});addEventListener('online',()=>{S.off=false;render()});
