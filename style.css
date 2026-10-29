@@ -160,7 +160,7 @@ nav{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);paddin
 .hero{margin-top:36px;display:grid;gap:14px}
 .hero p{margin:0;color:var(--muted);max-width:46ch}
 .auth{display:grid;gap:14px;margin-top:22px}
-.auth input,.ed2 input{width:100%;font:500 17px var(--body);padding:13px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink)}
+.auth input,.ed2 input,.ed2 select{width:100%;font:500 17px var(--body);padding:13px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink)}
 
 /* panel del entrenador */
 .panel{margin-top:18px;display:grid;gap:10px}

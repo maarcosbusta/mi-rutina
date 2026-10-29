@@ -337,14 +337,14 @@ function coachView(){
   if(S.prevOn&&routine)return previewView();
   if(edit)return editorView();
   if(wide())return deskView();
-  const tabs=`<div class="seg"><button data-tab="clientes" aria-pressed="${S.tab==='clientes'}">Clientes</button><button data-tab="actividad" aria-pressed="${S.tab==='actividad'}">Actividad${actN()?` <span class="dot2">${actN()}</span>`:''}</button><button data-tab="plantilla" aria-pressed="${S.tab==='plantilla'}">Plantilla</button><button data-tab="ejercicios" aria-pressed="${S.tab==='ejercicios'}">Ejercicios</button></div>`;
+  const tabs=`<div class="seg"><button data-tab="clientes" aria-pressed="${S.tab==='clientes'}">Clientes</button><button data-tab="actividad" aria-pressed="${S.tab==='actividad'}">Actividad${actN()?` <span class="dot2">${actN()}</span>`:''}</button><button data-tab="plantilla" aria-pressed="${S.tab==='plantilla'}">Programador rutinas</button><button data-tab="ejercicios" aria-pressed="${S.tab==='ejercicios'}">Ejercicios</button></div>`;
   let body='';
   const sel=clients.find(c=>c.id===selClient);
   if(S.tab==='ejercicios'){
     const X=S.x;
     body=`<main class="panel xm">${X.view==='list'?xHeadHTML()+`<div class="xsr"><input id="xq" class="sin" type="search" placeholder="Buscar ejercicio" value="${esc(X.q)}" autocomplete="off"><button class="btn sec" data-x="fopen" aria-expanded="${X.fopen}">Filtros${xnAct()?` <span class="dot2">${xnAct()}</span>`:''}</button></div>${X.fopen?`<div class="xfp">${xFiltersHTML()}</div>`:''}<div id="xlist">${xListHTML()}</div>`:xMainHTML()}</main>`;
   }else if(S.tab==='plantilla'){
-    body=`<main class="panel"><h2>Plantilla base</h2><p class="hint">Es la rutina que se copia a un cliente nuevo. Cambiarla no modifica las rutinas ya asignadas.</p>${tpl?`<button class="btn big" data-act="edittpl">Editar plantilla</button>`:'<div class="empty">Aún no hay plantilla base.</div><button class="btn big" data-act="newtpl">Crear plantilla vacía</button>'}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}</main>`;
+    body=progTabHTML();
   }else if(sel){
     const has=assigned.has(sel.id);
     body=`<button class="back" data-act="backc">← Clientes</button><main class="panel"><h2>${esc(label(sel))}</h2><p class="hint" style="margin:0">${esc(sel.email)}</p><div class="ed2" style="display:flex;gap:8px"><input id="cname" value="${esc(sel.name||'')}" placeholder="Nombre del cliente" aria-label="Nombre del cliente"><button class="btn sec" data-act="savename">Guardar</button></div>${has?`<button class="btn big" data-act="preview" style="margin-top:10px">Ver como lo ve el cliente</button>`:''}<label class="btn sec" for="xlsc" style="display:block;text-align:center;margin-top:10px">Cargar Excel (.xlsm) para este cliente</label><input type="file" id="xlsc" accept=".xlsm,.xlsx" hidden>${has?`<button class="btn big" data-act="editr">Editar su rutina</button>`:`<div class="empty">Este cliente aún no tiene rutina.</div><button class="btn big" data-act="assign" ${tpl?'':'disabled'}>Asignar plantilla base</button>${tpl?'':'<p class="hint">Crea primero la plantilla base.</p>'}`}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<h2 style="margin-top:14px">Chat</h2>${chatHTML(sel.id)}<h2 style="margin-top:14px">Sesiones registradas</h2>${cSessions.length?cSessions.map(sessionHTML).join(''):'<div class="empty">Todavía no ha registrado sesiones.</div>'}</main>`;
@@ -352,6 +352,12 @@ function coachView(){
     body=S.tab==='actividad'?`<main class="panel">${newHTML()}${msgsHTML()}${feedHTML()||''}${!newHTML()&&!msgsHTML()&&!feedHTML()?'<div class="empty">Aún no hay actividad de tus clientes.</div>':''}</main>`:`<main class="panel"><div class="hrow"><h2>Tus clientes</h2><button class="sbtn" data-act="search" aria-label="Buscar cliente"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button></div>${S.q!=null?`<input id="cq" class="sin" type="search" placeholder="Buscar por nombre o correo" value="${esc(S.q)}" autocomplete="off">`:''}${inviteHTML()}<div id="clist">${clistHTML()}</div><button class="btn sec" data-act="reload">Actualizar lista</button></main>`;
   }
   return topbar()+head('<h1>Panel del entrenador</h1>','Clientes y rutinas')+tabs+body;
+}
+// Pestaña «Programador rutinas»: elegir un cliente y programar su rutina, o editar la plantilla base
+function progTabHTML(){
+  const cs=[...clients].sort((a,b)=>label(a).localeCompare(label(b),'es'));
+  return `<main class="panel"><h2>Programar la rutina de un cliente</h2><p class="hint">Elige el cliente y se abre el programador con su rutina. Si aún no tiene, empiezas desde la plantilla base. No se guarda nada hasta que pulses Guardar.</p>${cs.length?`<div class="ed2"><select id="pgcli" aria-label="Cliente">${cs.map(c=>`<option value="${esc(c.id)}"${c.id===selClient?' selected':''}>${esc(label(c))}${assigned.has(c.id)?'':' · sin rutina'}</option>`).join('')}</select></div><button class="btn big" data-act="progcli" style="width:100%;margin-top:10px">Programar rutina</button>`:'<div class="empty">Aún no tienes clientes. Añádelos en la pestaña Clientes.</div>'}
+  <h2 style="margin-top:22px">Plantilla base</h2><p class="hint">Es la rutina que se copia a un cliente nuevo. Cambiarla no modifica las rutinas ya asignadas.</p>${tpl?`<button class="btn big" data-act="edittpl">Editar plantilla</button>`:'<div class="empty">Aún no hay plantilla base.</div><button class="btn big" data-act="newtpl">Crear plantilla vacía</button>'}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}</main>`;
 }
 function importCard(){
   const i=edit.imp||{};
@@ -395,7 +401,7 @@ function deskView(){
   const nc=clients.reduce((k,c)=>k+unreadIn(c.id).length,0),na=actN(),ns=Math.max(0,na-nc);
   const sel=clients.find(c=>c.id===selClient);
   const b=n=>n?`<span class="dot2">${n}</span>`:'';
-  const nav=`<div class="dnav"><button data-tab="clientes" aria-pressed="${S.tab==='clientes'}">Clientes</button><button data-tab="actividad" aria-pressed="${S.tab==='actividad'}">Actividad${b(na)}</button>${S.tab==='actividad'?`<div class="dsub"><button data-act="sub" data-k="chats" aria-pressed="${S.sub==='chats'}">Chats${b(nc)}</button><button data-act="sub" data-k="ses" aria-pressed="${S.sub!=='chats'}">Sesiones${b(ns)}</button></div>`:''}<button data-tab="plantilla" aria-pressed="${S.tab==='plantilla'}">Plantilla</button><button data-tab="ejercicios" aria-pressed="${S.tab==='ejercicios'}">Ejercicios</button></div>`;
+  const nav=`<div class="dnav"><button data-tab="clientes" aria-pressed="${S.tab==='clientes'}">Clientes</button><button data-tab="actividad" aria-pressed="${S.tab==='actividad'}">Actividad${b(na)}</button>${S.tab==='actividad'?`<div class="dsub"><button data-act="sub" data-k="chats" aria-pressed="${S.sub==='chats'}">Chats${b(nc)}</button><button data-act="sub" data-k="ses" aria-pressed="${S.sub!=='chats'}">Sesiones${b(ns)}</button></div>`:''}<button data-tab="plantilla" aria-pressed="${S.tab==='plantilla'}">Programador rutinas</button><button data-tab="ejercicios" aria-pressed="${S.tab==='ejercicios'}">Ejercicios</button></div>`;
   const pick=t=>`<div class="empty">${t}</div>`;
   // Ejercicios: filtros en la columna negra, lista en el centro y ficha a la derecha
   if(S.tab==='ejercicios'){
@@ -405,7 +411,7 @@ function deskView(){
   const side=`<aside class="dside">${topbar()}${nav}</aside>`;
   let list='',main='';
   if(S.tab==='plantilla'){
-    main=`<main class="panel"><h2>Plantilla base</h2><p class="hint">Es la rutina que se copia a un cliente nuevo. Cambiarla no modifica las rutinas ya asignadas.</p>${tpl?`<button class="btn big" data-act="edittpl">Editar plantilla</button>`:'<div class="empty">Aún no hay plantilla base.</div><button class="btn big" data-act="newtpl">Crear plantilla vacía</button>'}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}</main>`;
+    main=progTabHTML();
     return `<div class="desk nol">${side}<section class="dmain">${main}</section></div>`;
   }
   if(S.tab==='actividad'&&S.sub==='chats'){
@@ -970,6 +976,11 @@ async function act(a,t){
   if(a==='savename'){const v=document.getElementById('cname').value.trim();const {error}=await sb.from('profiles').update({name:v||null}).eq('id',selClient);if(error)S.err=werr(error);else{S.err='';clients.find(c=>c.id===selClient).name=v}render();return}
   if(a==='newtpl'){const d={title:'Mi rutina',weeks:[{name:'Semana 1',days:[{name:'Día 1',items:[]}]}]};const {error}=await sb.from('templates').upsert({id:'base',data:d});if(error){S.err=werr(error);render()}else{tpl=d;render()}return}
   if(a==='edittpl'){startEdit('tpl',tpl,'Plantilla base');return}
+  if(a==='progcli'){const id=(document.getElementById('pgcli')||{}).value;if(!id)return;selClient=id;S.err='';
+    if(assigned.has(id)){await act('editr',t);return}
+    // Sin rutina: empieza desde la plantilla base (o vacía) y se crea al pulsar Guardar
+    const c=tpl?JSON.parse(JSON.stringify(tpl)):{title:'Mi rutina',weeks:[{name:'Semana 1',days:[{name:'Día 1',items:[]}]}]};c.weeks.forEach(w=>w.days.forEach(d=>d.items.forEach(i=>i.id=uid())));
+    startEdit('routine',c,'Rutina nueva de '+label(clients.find(x=>x.id===id)));return}
   if(a==='editr'){const {data,error}=await sb.from('routines').select('title,data').eq('client_id',selClient).single();if(error){S.err=werr(error);render();return}startEdit('routine',{title:data.title,weeks:data.data.weeks},'Rutina de '+label(clients.find(c=>c.id===selClient)));return}
   if(a==='assign'){
     const c=JSON.parse(JSON.stringify(tpl));c.weeks.forEach(w=>w.days.forEach(d=>d.items.forEach(i=>i.id=uid())));
