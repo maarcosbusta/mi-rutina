@@ -77,11 +77,11 @@ async function loadClient(){
 }
 async function loadCoach(){
   const [c,r,t]=await Promise.all([
-    sb.from('profiles').select('id,email,name,role').eq('role','client').order('email'),
-    sb.from('routines').select('client_id'),
+    sb.from('profiles').select('id,email,name,role,avatar_url').eq('role','client').order('email'),
+    sb.from('routines').select('client_id,updated_at'),
     sb.from('templates').select('id,data')]);
   if(netErr(c.error)||netErr(r.error)){S.state='offline';render();return}
-  clients=c.data||[];assigned=new Set((r.data||[]).map(x=>x.client_id));
+  clients=c.data||[];assigned=new Set((r.data||[]).map(x=>x.client_id));rupd=Object.fromEntries((r.data||[]).map(x=>[x.client_id,x.updated_at]));
   const base=(t.data||[]).find(x=>x.id==='base'),lb=(t.data||[]).find(x=>x.id==='lib');
   tpl=base?base.data:null;lib=lb?(lb.data.items||[]):[];
   xlib={gens:lb&&lb.data.gens||[],mats:lb&&lb.data.mats||[],have:lb&&lb.data.have||null};
@@ -353,11 +353,31 @@ function coachView(){
   }
   return topbar()+head('<h1>Panel del entrenador</h1>','Clientes y rutinas')+tabs+body;
 }
-// Pestaña «Programador rutinas»: elegir un cliente y programar su rutina, o editar la plantilla base
+// Pestaña «Programador rutinas»: lista de clientes (los que no tienen rutina, arriba en amarillo) para programar su rutina, y la plantilla base
+let rupd={};S.pc={q:'',f:'all'};
+// «Actualizada hoy / ayer / hace 3 días / hace 2 semanas / hace 1 mes»
+function hace(iso){const d=new Date(iso);if(!iso||isNaN(d))return 'Con rutina';const n=Math.floor((Date.now()-d)/864e5);
+  return 'Actualizada '+(n<1?'hoy':n<2?'ayer':n<14?`hace ${n} días`:n<60?`hace ${Math.floor(n/7)} semanas`:`hace ${Math.floor(n/30)} meses`)}
+const PCGO='<svg class="pc-go" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+function pcListHTML(){
+  const q=S.pc.q.trim().toLowerCase(),f=S.pc.f;
+  const L=[...clients].sort((a,b)=>label(a).localeCompare(label(b),'es')).filter(c=>(f==='all'||(f==='si')===assigned.has(c.id))&&(!q||(label(c)+' '+c.email).toLowerCase().includes(q)));
+  const row=c=>{const has=assigned.has(c.id);return `<button class="pc-cl" data-act="pcsel" data-id="${esc(c.id)}" aria-pressed="${c.id===selClient}"><span class="pc-av"${c.avatar_url?` style="background-image:url('${esc(c.avatar_url)}')"`:''}>${c.avatar_url?'':esc(initial(c))}</span><span class="pc-ct"><b>${esc(label(c))}</b><small>${has?esc(hace(rupd[c.id])):'Empieza desde la plantilla'}<span> · ${esc(c.email)}</span></small></span><span class="pc-tag ${has?'ok':'no'}">${has?'Con rutina':'Sin rutina'}</span>${PCGO}</button>`};
+  const sin=L.filter(c=>!assigned.has(c.id)),con=L.filter(c=>assigned.has(c.id));
+  if(!L.length)return `<div class="pc-grp"><div class="pc-none">${clients.length?'Ningún cliente coincide.':'Aún no tienes clientes. Añádelos en la pestaña Clientes.'}</div></div>`;
+  return (sin.length?`<section class="pc-grp pend"><div class="pc-gh"><b>Sin rutina</b><small>${sin.length} pendiente${sin.length>1?'s':''}</small></div>${sin.map(row).join('')}</section>`:'')
+    +(con.length?`<section class="pc-grp"><div class="pc-gh"><b>Con rutina</b><small>${con.length}</small></div>${con.map(row).join('')}</section>`:'');
+}
 function progTabHTML(){
-  const cs=[...clients].sort((a,b)=>label(a).localeCompare(label(b),'es'));
-  return `<main class="panel"><h2>Programar la rutina de un cliente</h2><p class="hint">Elige el cliente y se abre el programador con su rutina. Si aún no tiene, empiezas desde la plantilla base. No se guarda nada hasta que pulses Guardar.</p>${cs.length?`<div class="ed2"><select id="pgcli" aria-label="Cliente">${cs.map(c=>`<option value="${esc(c.id)}"${c.id===selClient?' selected':''}>${esc(label(c))}${assigned.has(c.id)?'':' · sin rutina'}</option>`).join('')}</select></div><button class="btn big" data-act="progcli" style="width:100%;margin-top:10px">Programar rutina</button>`:'<div class="empty">Aún no tienes clientes. Añádelos en la pestaña Clientes.</div>'}
-  <h2 style="margin-top:22px">Plantilla base</h2><p class="hint">Es la rutina que se copia a un cliente nuevo. Cambiarla no modifica las rutinas ya asignadas.</p>${tpl?`<button class="btn big" data-act="edittpl">Editar plantilla</button>`:'<div class="empty">Aún no hay plantilla base.</div><button class="btn big" data-act="newtpl">Crear plantilla vacía</button>'}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}</main>`;
+  const nr=clients.filter(c=>!assigned.has(c.id)).length,s=clients.find(c=>c.id===selClient);
+  const chip=(k,t,n)=>`<button class="pc-chip" data-act="pcf" data-k="${k}" aria-pressed="${S.pc.f===k}">${t} <em>${n}</em></button>`;
+  return `<main class="panel pc"><header class="pc-hero"><p class="pc-eyb">// Programador rutinas</p><h2>¿A quién le programas hoy?</h2><p>Elige un cliente y se abre el programador con su rutina.</p></header>
+  <div class="pc-tools"><label class="pc-search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="pcq" type="search" placeholder="Buscar cliente por nombre o correo" value="${esc(S.pc.q)}" autocomplete="off" aria-label="Buscar cliente"></label>
+  <div class="pc-chips">${chip('all','Todos',clients.length)}${chip('si','Con rutina',clients.length-nr)}${chip('no','Sin rutina',nr)}</div></div>
+  <div id="pclist">${pcListHTML()}</div>
+  ${s?`<div class="pc-act"><div><small>// ${assigned.has(s.id)?'Programar rutina de':'Rutina nueva para'}</small><b>${esc(label(s))}</b></div><button class="pc-btn" data-act="progcli">Programar →</button></div>`:`<div class="pc-act off"><div><small>// Ningún cliente elegido</small><b>Elige un cliente</b></div><button class="pc-btn" disabled>Programar →</button></div>`}
+  ${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}
+  <section class="pc-tpl"><div><h2>Plantilla base</h2><p>La rutina que se copia a un cliente nuevo. Cambiarla no modifica las ya asignadas.</p></div>${tpl?`<button class="pc-btn sec" data-act="edittpl">Editar plantilla</button>`:'<button class="pc-btn sec" data-act="newtpl">Crear plantilla vacía</button>'}</section></main>`;
 }
 function importCard(){
   const i=edit.imp||{};
@@ -976,7 +996,9 @@ async function act(a,t){
   if(a==='savename'){const v=document.getElementById('cname').value.trim();const {error}=await sb.from('profiles').update({name:v||null}).eq('id',selClient);if(error)S.err=werr(error);else{S.err='';clients.find(c=>c.id===selClient).name=v}render();return}
   if(a==='newtpl'){const d={title:'Mi rutina',weeks:[{name:'Semana 1',days:[{name:'Día 1',items:[]}]}]};const {error}=await sb.from('templates').upsert({id:'base',data:d});if(error){S.err=werr(error);render()}else{tpl=d;render()}return}
   if(a==='edittpl'){startEdit('tpl',tpl,'Plantilla base');return}
-  if(a==='progcli'){const id=(document.getElementById('pgcli')||{}).value;if(!id)return;selClient=id;S.err='';
+  if(a==='pcsel'){selClient=selClient===t.dataset.id?null:t.dataset.id;S.err='';render();return}
+  if(a==='pcf'){S.pc.f=t.dataset.k;render();return}
+  if(a==='progcli'){const id=selClient;if(!id)return;S.err='';
     if(assigned.has(id)){await act('editr',t);return}
     // Sin rutina: empieza desde la plantilla base (o vacía) y se crea al pulsar Guardar
     const c=tpl?JSON.parse(JSON.stringify(tpl)):{title:'Mi rutina',weeks:[{name:'Semana 1',days:[{name:'Día 1',items:[]}]}]};c.weeks.forEach(w=>w.days.forEach(d=>d.items.forEach(i=>i.id=uid())));
@@ -992,7 +1014,7 @@ async function act(a,t){
     S.busy=true;S.err='';render();
     const m=edit.model;let error;
     if(edit.kind==='tpl'){({error}=await sb.from('templates').upsert({id:'base',data:{title:m.title,weeks:m.weeks}}));if(!error)tpl={title:m.title,weeks:m.weeks}}
-    else{({error}=await sb.from('routines').upsert({client_id:selClient,title:m.title,data:{weeks:m.weeks},updated_at:new Date().toISOString()}));if(!error)assigned.add(selClient)}
+    else{({error}=await sb.from('routines').upsert({client_id:selClient,title:m.title,data:{weeks:m.weeks},updated_at:new Date().toISOString()}));if(!error){assigned.add(selClient);rupd[selClient]=new Date().toISOString()}}
     S.busy=false;if(error){S.err=werr(error);render();return}
     edit=null;render();return;
   }
@@ -1128,6 +1150,7 @@ document.addEventListener('input',e=>{
   if(t.id==='pw'){const l=document.getElementById('pwreq');if(l)l.innerHTML=pwReqHTML(t.value);return}
   if(t.classList&&t.classList.contains('cm-in')){S.cmd[t.dataset.sid]=t.value;return}
   if(t.id==='inem'&&S.inv){S.inv.em=t.value;return}
+  if(t.id==='pcq'){S.pc.q=t.value;const l=document.getElementById('pclist');if(l)l.innerHTML=pcListHTML();return}
   if(t.id==='cq'){S.q=t.value;const l=document.getElementById('clist');if(l)l.innerHTML=clistHTML();return}
   if(t.id==='xq'){S.x.q=t.value;const l=document.getElementById('xlist');if(l)l.innerHTML=xListHTML();return}
   if(t.dataset.xe&&S.x.ed&&t.tagName!=='SELECT'){S.x.ed[t.dataset.xe]=t.value;return}
@@ -1217,7 +1240,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList&&
   // Ejercicios: Enter en "añadir material/categoría" pulsa su botón; en un nombre, lo guarda
   const id=e.target.id||'';if(e.key==='Enter'&&(id==='xnm'||id==='xng'||id.startsWith('xnc'))){e.preventDefault();const b=e.target.parentElement.querySelector('[data-x]');if(b)b.click()}
   if(e.key==='Enter'&&e.target.dataset&&(e.target.dataset.xrg!=null||e.target.dataset.xrc!=null)){e.preventDefault();e.target.blur()}});
-setInterval(async()=>{if(!me||!sb||document.hidden||S.exm||S.state==='login')return;try{await loadMsgs();if(isCoach()){const [c,r]=await Promise.all([sb.from('profiles').select('id,email,name,role').eq('role','client').order('email'),sb.from('routines').select('client_id')]);if(!c.error&&!r.error){clients=c.data||[];assigned=new Set((r.data||[]).map(x=>x.client_id))}}const c=isCoach()?(!wide()||deskChat()?selClient:null):(S.tab==='chat'?me.id:null);if(c)await markRead(c);soft()}catch(e){}},15000);
+setInterval(async()=>{if(!me||!sb||document.hidden||S.exm||S.state==='login')return;try{await loadMsgs();if(isCoach()){const [c,r]=await Promise.all([sb.from('profiles').select('id,email,name,role,avatar_url').eq('role','client').order('email'),sb.from('routines').select('client_id,updated_at')]);if(!c.error&&!r.error){clients=c.data||[];assigned=new Set((r.data||[]).map(x=>x.client_id));rupd=Object.fromEntries((r.data||[]).map(x=>[x.client_id,x.updated_at]))}}const c=isCoach()?(!wide()||deskChat()?selClient:null):(S.tab==='chat'?me.id:null);if(c)await markRead(c);soft()}catch(e){}},15000);
 document.addEventListener('toggle',e=>{const d=e.target;if(d.matches&&d.matches('details.ses')){const id=d.dataset.sid;if(d.open)S.open.add(id);else S.open.delete(id)}},true);
 
 addEventListener('offline',()=>{S.off=true;render()});addEventListener('online',()=>{S.off=false;render()});
