@@ -127,6 +127,10 @@ nav{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);paddin
 .hint{font-size:13.5px;color:var(--muted);margin:0 0 10px}
 .err{color:var(--bad);font-size:14px}
 .ok{color:var(--done);font-size:14px}
+.pwbox{background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:12px 14px}
+.pwreq{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:14px;color:var(--muted)}
+.pwreq li::before{content:"○";display:inline-block;width:1.4em;color:var(--muted)}
+.pwreq li.okr{color:var(--done)}.pwreq li.okr::before{content:"✓";color:var(--done);font-weight:700}
 .msg{font-size:13px;margin-top:8px;color:var(--bad);width:100%}
 .link,.linkb{background:none;border:0;color:var(--muted);text-decoration:underline;font:inherit;cursor:pointer;padding:6px;justify-self:start}
 .back{background:none;border:0;color:var(--muted);font:700 14px var(--body);cursor:pointer;padding:14px 0 0}
