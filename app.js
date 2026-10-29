@@ -11,7 +11,7 @@ const configured=!!(CFG.SUPABASE_URL&&CFG.SUPABASE_ANON_KEY&&!CFG.SUPABASE_URL.i
 const FROM_LINK=/type=(invite|recovery)/.test(location.hash);
 let sb=null,me=null;
 let S={state:'loading',tab:'rutina',w:0,d:0,err:'',info:'',busy:false,forgot:false};
-let msgs=[],comments={},feed=[],seenSet=new Set(),routine=null,sessions=[],draft={},clients=[],assigned=new Set(),tpl=null,lib=[],selClient=null,cSessions=[],edit=null,finish=null;
+let msgs=[],comments={},efforts={},feed=[],seenSet=new Set(),routine=null,sessions=[],draft={},clients=[],assigned=new Set(),tpl=null,lib=[],selClient=null,cSessions=[],edit=null,finish=null;
 const loadJ=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch(e){return f}};
 const saveJ=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 const label=c=>(c&&(c.name||c.email))||'Cliente';
@@ -46,6 +46,11 @@ async function loadComments(ids){
   const {data}=await sb.from('session_comments').select('*').in('session_id',ids).order('created_at',{ascending:true});
   ids.forEach(id=>{comments[id]=[]});(data||[]).forEach(c=>comments[c.session_id].push(c));
 }
+async function loadEfforts(ids){
+  if(!isCoach())return;ids=[...new Set(ids)].filter(Boolean);if(!ids.length)return;
+  const {data}=await sb.from('session_effort').select('session_id,effort').in('session_id',ids);
+  (data||[]).forEach(e=>{efforts[e.session_id]=e.effort});
+}
 async function loadClient(){
   const [r,s]=await Promise.all([
     sb.from('routines').select('title,data').eq('client_id',me.id).maybeSingle(),
@@ -70,12 +75,13 @@ async function loadCoach(){
   const f=await sb.from('sessions').select('id,client_id,dname,wname,performed_at,feeling,notes,items').order('performed_at',{ascending:false}).limit(40);
   feed=(f.data||[]).map(x=>({...x,date:x.performed_at}));
   await loadComments(feed.map(x=>x.id));
+  await loadEfforts(feed.map(x=>x.id));
   await loadMsgs();
   soft();
 }
 async function loadClientSessions(id){
   const {data}=await sb.from('sessions').select('*').eq('client_id',id).order('performed_at',{ascending:false}).limit(30);
-  cSessions=(data||[]).map(x=>({...x,date:x.performed_at}));await loadComments(cSessions.map(x=>x.id));soft();
+  cSessions=(data||[]).map(x=>({...x,date:x.performed_at}));await loadComments(cSessions.map(x=>x.id));await loadEfforts(cSessions.map(x=>x.id));soft();
 }
 
 /* ---------- piezas comunes ---------- */
@@ -93,7 +99,10 @@ function facts(it){
 }
 const bname=b=>String(b||'').replace(/^.*bloque\s*:\s*/i,'').trim();
 const factHTML=f=>f.map(([l,v,c])=>`<div class="fact ${c||''}"><small>${l}</small>${esc(v)}</div>`).join('');
-const vidHTML=it=>it.video?`<a class="vid" href="${esc(it.video)}" target="_blank" rel="noopener">${PLAY}Ver vídeo</a>`:'<span class="novid">Sin vídeo</span>';
+const isFile=v=>/\.(mp4|webm|mov)(\?|#|$)/i.test(String(v||'').trim());
+const clipHTML=it=>`<video class="clip" src="${esc(it.video)}" muted loop playsinline controls preload="none" aria-label="Vídeo de ${esc(it.name)}"></video>`;
+const tipsHTML=it=>{const ts=String(it.tips||'').split(';').map(x=>x.trim()).filter(Boolean);return ts.length?`<ol class="tips">${ts.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`:''};
+const vidHTML=it=>(isFile(it.video)?clipHTML(it):it.video?`<a class="vid" href="${esc(it.video)}" target="_blank" rel="noopener">${PLAY}Ver vídeo</a>`:'<span class="novid">Sin vídeo</span>')+tipsHTML(it);
 function nav(m,withAdd){
   if(!withAdd){
     const ds=m.weeks[S.w].days;
@@ -181,12 +190,12 @@ function clientRoutine(){
   };
   const groups=groupsOf(day.items);
   groups.forEach(g=>{if(isSS(g)){const f=g.items[0];g.items.forEach(it=>{if(!it.series)it.series=f.series;if(!it.rest)it.rest=f.rest})}});
-  const miniVid=it=>it.video?`<a class="play" href="${esc(it.video)}" target="_blank" rel="noopener" aria-label="Ver vídeo de ${esc(it.name)}">${PLAY}</a>`:'';
+  const miniVid=it=>isFile(it.video)?`<button class="play" data-act="vid" data-id="${esc(it.id)}" aria-pressed="${S.vid.has(it.id)}" aria-label="Ver vídeo de ${esc(it.name)}">${PLAY}</button>`:it.video?`<a class="play" href="${esc(it.video)}" target="_blank" rel="noopener" aria-label="Ver vídeo de ${esc(it.name)}">${PLAY}</a>`:'';
   const planOf=it=>[it.reps,it.kg&&('Carga: '+n$(it.kg))].filter(Boolean).join(' · ');
   const blockHTML=(g,gi,cur)=>{
     const sr=g.items.find(x=>x.series),rs=g.items.find(x=>x.rest);
     const [bt,bd]=stat(g.items);
-    const legend=g.items.map((it,k)=>`<li class="ex"><span class="dot" aria-hidden="true"></span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small>${lastFor(it)?`<small class="lt">Última vez: ${esc(lastFor(it))}</small>`:''}</div><button class="cmx" data-act="exmsg" data-name="${esc(it.name)}" aria-label="Escribir sobre ${esc(it.name)}">💬</button>${miniVid(it)}</li>`).join('');
+    const legend=g.items.map((it,k)=>`<li class="ex"><span class="dot" aria-hidden="true"></span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small>${lastFor(it)?`<small class="lt">Última vez: ${esc(lastFor(it))}</small>`:''}</div><button class="cmx" data-act="exmsg" data-name="${esc(it.name)}" aria-label="Escribir sobre ${esc(it.name)}">💬</button>${miniVid(it)}${S.vid.has(it.id)&&isFile(it.video)?`<div class="lv">${clipHTML(it)}${tipsHTML(it)}</div>`:''}</li>`).join('');
     const rounds=Math.max(0,...g.items.map(it=>dget(it).length));
     let rh='';
     const doneAt=r=>g.items.filter(it=>dget(it)[r]).every(it=>dget(it)[r].done);
@@ -216,12 +225,13 @@ function clientRoutine(){
     if(g.block)return normalHTML(g,gi,gi===curG);
     return `<article class="card bcard">${g.items.map(it=>exHTML(it,gi===curG)).join('')}</article>`;
   }).join('')||'<div class="empty">Este día aún no tiene ejercicios.</div>';
-  const fin=finish?`<div class="sheet"><h2>Terminar sesión</h2><div><label>¿Qué esfuerzo has sentido en esta sesión?</label><div class="feel" style="margin-top:8px">${[1,2,3,4,5].map(n=>`<button class="e${n}" data-act="feel" data-n="${n}" aria-pressed="${finish.feeling===n}"><b>${n}</b><small>${FSHORT[n-1]}</small></button>`).join('')}</div><p class="ft">${finish.feeling?`<b>${finish.feeling}</b> · ${FEEL[finish.feeling-1]}`:'1 = casi sin esfuerzo · 5 = esfuerzo máximo'}</p></div><label>Notas para tu entrenador<textarea id="fnote" placeholder="Dolor, sensaciones, cambios que hiciste...">${esc(finish.notes)}</textarea></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" data-act="savesession" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar sesión'}</button><button class="back" data-act="cancelfin">Seguir entrenando</button></div>`
+  const fin=finish?`<div class="sheet"><h2>Terminar sesión</h2><label>Notas para tu entrenador (opcional)<textarea id="fnote" placeholder="Dolor, sensaciones, cambios que hiciste...">${esc(finish.notes)}</textarea></label><div><label>¿Cuánto esfuerzo te ha costado?</label><p class="ft" style="margin:2px 0 8px">1 = muy suave · 10 = al máximo. Al tocar un número se guarda la sesión.</p><div class="esf">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-act="effort" data-n="${n}" aria-pressed="${finish.effort===n}" ${S.busy?'disabled':''} aria-label="Esfuerzo ${n} de 10">${n}</button>`).join('')}</div></div>${S.busy?'<p class="ft" role="status">Guardando…</p>':''}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="back" data-act="cancelfin">Seguir entrenando</button></div>`
     :restBar()+`<div class="dock"><div class="dk"><b>${done}</b><small>de ${total} series</small></div><button class="rbtn" data-act="rest" aria-label="Temporizador de descanso">⏱</button><button class="btn" data-act="fin" ${done?'':'disabled'}>Terminar sesión</button></div>`;
   return nav(routine)+`<main>${map}${cards}${fin}</main>`+exmHTML()+(S.toast?`<div class="toast" role="status">${esc(S.toast)}</div>`:'');
 }
+const effHTML=s=>!isCoach()?'':efforts[s.id]?`<span class="tag ef${efforts[s.id]>=8?' hi':''}">Esfuerzo ${efforts[s.id]}/10</span>`:feelHTML(s.feeling);
 const feelHTML=f=>{f=+f||0;return f?`<span class="fl l${f}" title="${esc(FEEL[f-1]||'')}">${[1,2,3,4,5].map(n=>`<i class="${n<=f?'on':''}"></i>`).join('')}</span><span class="fw">${esc(FEEL[f-1]||'')}</span>`:''};
-S.open=new Set();S.cmd={};
+S.open=new Set();S.cmd={};S.vid=new Set();
 function whoIs(c,s){const mine=c.author_id===me.id;if(mine)return 'Tú';if(c.author_id===s.client_id)return label(clients.find(x=>x.id===s.client_id)||{name:'Cliente'});return 'Entrenador'}
 function commentsHTML(s,cs){
   return `<div class="cm"><b class="cmt">Comentarios</b>${cs.length?cs.map(c=>`<div class="cmi ${c.author_id===me.id?'me':''}"><small>${esc(whoIs(c,s))} · ${esc(fdate(c.created_at))}</small><p>${esc(c.body)}</p></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay comentarios.</p>'}<div class="cmf"><input class="cm-in" id="cm-${esc(s.id)}" data-sid="${esc(s.id)}" maxlength="1000" placeholder="${isCoach()?'Escribe al cliente…':'Escribe a tu entrenador…'}" value="${esc(S.cmd[s.id]||'')}" aria-label="Escribir comentario"><button class="btn sec" data-act="cmsend" data-sid="${esc(s.id)}">Enviar</button></div></div>`;
@@ -258,7 +268,7 @@ function msgsHTML(){
 function exmHTML(){const e=S.exm;if(!e)return '';
   return `<div class="mo" role="dialog" aria-modal="true"><div class="mc"><h2>${esc(e.name)}</h2><small class="sub">${esc(e.ctx)}</small><div class="kq">${Object.keys(KIND).map(k=>`<button class="kc ${e.kind===k?'on':''}" data-act="ekind" data-k="${k}" aria-pressed="${e.kind===k}">${KIND[k]}</button>`).join('')}</div><textarea id="exm-t" maxlength="1000" placeholder="¿Cómo te ha ido? ¿Alguna molestia o duda?">${esc(e.text)}</textarea><button class="btn big" data-act="exsend">Enviar a mi entrenador</button><button class="back" data-act="excancel">Cancelar</button></div></div>`}
 const actN=()=>clients.filter(c=>!assigned.has(c.id)).length+clients.reduce((n,c)=>n+unreadIn(c.id).length,0)+feed.filter(s=>new Date(s.date)>Date.now()-14*864e5&&needsReply(s)&&!seenSet.has(s.id)).length;
-const needsReply=s=>{const cs=comments[s.id]||[],l=cs[cs.length-1];if(l)return l.author_id===s.client_id;return !!((s.notes||'').trim()||(s.feeling&&s.feeling>=4))};
+const needsReply=s=>{const cs=comments[s.id]||[],l=cs[cs.length-1];if(l)return l.author_id===s.client_id;return !!((s.notes||'').trim()||(s.feeling&&s.feeling>=4)||efforts[s.id]>=8)};
 function feedHTML(){
   const cut=Date.now()-14*864e5;
   const rec=feed.filter(s=>new Date(s.date)>cut);
@@ -267,7 +277,7 @@ function feedHTML(){
   const cl=s=>clients.find(c=>c.id===s.client_id)||{name:'Cliente'};
   const tot=s=>{let t=0,d=0;(s.items||[]).forEach(i=>(i.sets||[]).forEach(x=>{t++;if(x.done)d++}));return[d,t]};
   const row=(s,hot)=>{const [d,t]=tot(s),cs=comments[s.id]||[],l=cs[cs.length-1];
-    return `<div class="fi ${hot?'hot':''}"><button class="fib" data-act="openses" data-cid="${esc(s.client_id)}" data-sid="${esc(s.id)}"><span class="av sm">${esc(initial(cl(s)))}</span><span class="fit"><b>${esc(label(cl(s)))}</b><small>${esc(s.dname||'Sesión')} · ${esc(fdate(s.date))} · ${d}/${t} series</small><span class="sm">${feelHTML(s.feeling)}${hot?'<span class="tag warn">Por responder</span>':''}</span>${l&&l.author_id===s.client_id?`<q>${esc(l.body)}</q>`:(s.notes?`<q>${esc(s.notes)}</q>`:'')}</span></button>${hot?`<button class="seen" data-act="seen" data-sid="${esc(s.id)}">Ya lo vi</button>`:''}</div>`};
+    return `<div class="fi ${hot?'hot':''}"><button class="fib" data-act="openses" data-cid="${esc(s.client_id)}" data-sid="${esc(s.id)}"><span class="av sm">${esc(initial(cl(s)))}</span><span class="fit"><b>${esc(label(cl(s)))}</b><small>${esc(s.dname||'Sesión')} · ${esc(fdate(s.date))} · ${d}/${t} series</small><span class="sm">${effHTML(s)}${hot?'<span class="tag warn">Por responder</span>':''}</span>${l&&l.author_id===s.client_id?`<q>${esc(l.body)}</q>`:(s.notes?`<q>${esc(s.notes)}</q>`:'')}</span></button>${hot?`<button class="seen" data-act="seen" data-sid="${esc(s.id)}">Ya lo vi</button>`:''}</div>`};
   if(!feed.length)return '';
   return `<section class="feed"><h2>Actividad reciente</h2>${att.length?att.map(s=>row(s,true)).join(''):'<p class="hint" style="margin:0 0 6px">Todo al día: no hay nada por responder.</p>'}${rest.length?`<h3>Últimas sesiones</h3>${rest.map(s=>row(s,false)).join('')}`:''}</section>`;
 }
@@ -277,7 +287,7 @@ function sessionHTML(s){
   const day=ok?dt.getDate():'·',mon=ok?dt.toLocaleDateString('es-ES',{month:'short'}).replace('.',''):'';
   const wk=ok?dt.toLocaleDateString('es-ES',{weekday:'long'}):'';
   const pct=t?Math.round(d/t*100):0;
-  const dots=feelHTML(s.feeling),cs=comments[s.id]||[];
+  const dots=effHTML(s),cs=comments[s.id]||[];
   const gs=[];its.forEach(i=>{const k=i.block||'';const l=gs[gs.length-1];if(l&&l.k===k)l.items.push(i);else gs.push({k,items:[i]})});
   const body=gs.map((g,gi)=>`<div class="sb bk${gi%4}">${g.k?`<div class="sbh"><span class="sbn">${gi+1}</span>${esc(bname(g.k))}</div>`:''}${g.items.map(i=>`<div class="sx"><strong>${esc(i.name)}</strong><div class="sets">${(i.sets||[]).map((x,n)=>`<span class="st${x.done?' ok':''}"><em>${n+1}</em>${x.kg||x.reps?(x.kg?esc(x.kg)+' kg':'–')+' × '+(x.reps?esc(x.reps):'–'):'Sin datos'}</span>`).join('')}</div></div>`).join('')}</div>`).join('');
   return `<details class="ses" data-sid="${esc(s.id)}"${S.open&&S.open.has(s.id)?' open':''}><summary><div class="dt"><b>${day}</b><small>${esc(mon)}</small></div><div class="si"><strong>${esc(s.dname||'Sesión')}</strong><small>${esc(wk)}${s.wname?' · '+esc(s.wname):''}</small><div class="pb"><i style="width:${pct}%"></i></div><div class="sm"><span class="tag ${d===t&&t?'ok':''}">${d}/${t} series</span>${dots}${cs.length?`<span class="tag cmb">💬 ${cs.length}</span>`:''}</div></div><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary><div class="sbody">${body}${s.notes?`<div class="snote"><b>Nota</b>${esc(s.notes)}</div>`:''}${commentsHTML(s,cs)}</div></details>`;
@@ -319,12 +329,12 @@ function importCard(){
 }
 function editorView(){
   const m=edit.model;normNav(m);const day=m.weeks[S.w].days[S.d];
-  const f=(it,k,l,full)=>`<div class="${full?'full':''}"><label>${l}<input data-id="${it.id}" data-f="${k}" value="${esc(it[k])}" ${k==='name'?'list="lib"':''} ${k==='video'?'inputmode="url" placeholder="https://youtube.com/..."':''}></label></div>`;
+  const f=(it,k,l,full)=>`<div class="${full?'full':''}"><label>${l}<input data-id="${it.id}" data-f="${k}" value="${esc(it[k])}" ${k==='name'?'list="lib"':''} ${k==='video'?'inputmode="url" placeholder="videos/ejercicio.mp4 o enlace de YouTube"':''}${k==='tips'?'placeholder="Clave 1; clave 2; clave 3"':''}></label></div>`;
   return head(`<input class="titlein" id="ttl" value="${esc(m.title)}" aria-label="Título" style="width:100%;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:8px 10px">`,esc(edit.label))+nav(m,true)+`<main><div class="card ed" style="margin-top:14px"><div class="grid"><div><label>Nombre de la semana<input data-wf="name" value="${esc(m.weeks[S.w].name)}"></label></div><div><label>Nombre del día<input data-df="name" value="${esc(day.name)}"></label></div></div><div class="tools"><button class="btn warn" data-act="delday">Quitar este día</button><button class="btn warn" data-act="delwk">Quitar esta semana</button><button class="btn sec" data-act="dupwk">Copiar semana</button></div></div><div style="height:12px"></div>`
    +importCard()
    +groupsOf(day.items).map((g,gi)=>{const ss=isSS(g),fi=g.items[0],bf=(k,l)=>`<div><label>${l}<input data-bf="${k}" data-i="${g.start}" value="${esc(fi[k])}"></label></div>`;
      return (g.block?`<section class="eblk bk${gi%4}"><div class="bh"><span class="bn">${gi+1}</span><div class="bt"><h2>${esc(bname(g.block))}</h2></div></div><div class="mode" role="group" aria-label="Tipo de bloque"><button data-act="bmode" data-m="ss" data-i="${g.start}" aria-pressed="${ss}">Superserie</button><button data-act="bmode" data-m="normal" data-i="${g.start}" aria-pressed="${!ss}">Series normales</button></div><p class="hint" style="margin:0">${ss?'Los ejercicios se alternan por rondas. Series y descanso son los mismos para todo el bloque.':'Cada ejercicio se hace entero antes de pasar al siguiente, con sus propias series y su descanso.'}</p>${ss?`<div class="grid ed">${bf('series','Series del bloque')}${bf('rest','Descanso entre rondas')}</div>`:''}</section>`:'')
-     +g.items.map((it,k)=>{const i=g.start+k;return `<article class="card ed"><div class="grid">${f(it,'block','Bloque',1)}${f(it,'name','Ejercicio',1)}${ss?'':f(it,'series','Series')}${f(it,'reps','Repeticiones')}${f(it,'kg','Carga')}${ss?'':f(it,'rest','Descanso')}${f(it,'video','Enlace del vídeo',1)}</div><div class="tools"><button class="btn sec" data-act="up" data-i="${i}">Subir</button><button class="btn sec" data-act="down" data-i="${i}">Bajar</button><button class="btn warn" data-act="del" data-i="${i}">Quitar</button></div></article>`}).join('')}).join('')
+     +g.items.map((it,k)=>{const i=g.start+k;return `<article class="card ed"><div class="grid">${f(it,'block','Bloque',1)}${f(it,'name','Ejercicio',1)}${ss?'':f(it,'series','Series')}${f(it,'reps','Repeticiones')}${f(it,'kg','Carga')}${ss?'':f(it,'rest','Descanso')}${f(it,'video','Vídeo (archivo o enlace)',1)}${f(it,'tips','Claves técnicas (separa con ;)',1)}</div><div class="tools"><button class="btn sec" data-act="up" data-i="${i}">Subir</button><button class="btn sec" data-act="down" data-i="${i}">Bajar</button><button class="btn warn" data-act="del" data-i="${i}">Quitar</button></div></article>`}).join('')}).join('')
    +`<button class="btn sec" data-act="addex" style="width:100%;padding:14px">+ Añadir ejercicio</button></main><div class="coach"><span>${esc(edit.label)}</span><button class="btn sec" data-act="canceled">Cancelar</button><button class="btn" data-act="saveed" ${S.busy?'disabled':''}>${S.busy?'Guardando…':'Guardar'}</button>${S.err?`<div class="msg" role="alert">${esc(S.err)}</div>`:''}</div>`;
 }
 
@@ -385,16 +395,19 @@ async function act(a,t){
   if(a==='restadd'){if(restTimer){restTimer.end+=15000;render()}return}
   if(a==='restskip'){stopRest();return}
   if(a==='round'){clearRo(t);const ids=t.dataset.ids.split(','),i=+t.dataset.i;const its=ids.map(findEx);const all=its.every(it=>dget(it)[i].done);its.forEach(it=>{dget(it)[i].done=!all});saveDraft();const rs=Math.max(0,...its.map(it=>restSecs(it.rest)));if(!all&&rs){startRest(rs);return}render();return}
-  if(a==='fin'){finish={feeling:0,notes:''};S.err='';render();return}
+  if(a==='fin'){finish={effort:0,notes:''};S.err='';render();return}
+  if(a==='vid'){const id=t.dataset.id;S.vid.has(id)?S.vid.delete(id):S.vid.add(id);render();return}
   if(a==='cancelfin'){finish=null;render();return}
-  if(a==='feel'){finish.feeling=+t.dataset.n;render();return}
-  if(a==='savesession'){
+  if(a==='effort'||a==='savesession'){
+    if(S.busy)return;if(a==='effort')finish.effort=+t.dataset.n;
     S.busy=true;S.err='';render();
     const day=routine.weeks[S.w].days[S.d];
     const items=day.items.map(it=>({id:it.id,block:it.block||'',name:it.name,cat:it.cat||'',plan:{series:it.series||'',reps:it.reps||'',kg:it.kg||''},sets:dget(it).map(s=>({kg:s.kg,reps:s.reps,done:s.done}))}));
-    const {error}=await sb.from('sessions').insert({client_id:me.id,week:S.w,day:S.d,wname:routine.weeks[S.w].name,dname:day.name,feeling:finish.feeling||null,notes:finish.notes,items});
+    const {data:ns,error}=await sb.from('sessions').insert({client_id:me.id,week:S.w,day:S.d,wname:routine.weeks[S.w].name,dname:day.name,notes:finish.notes,items}).select('id').single();
+    if(error){S.busy=false;S.err=werr(error);render();return}
+    // El esfuerzo va en una tabla aparte que el cliente puede escribir pero no leer
+    if(finish.effort){const {error:ee}=await sb.from('session_effort').insert({session_id:ns.id,client_id:me.id,effort:finish.effort});if(ee)console.warn('esfuerzo no guardado',ee)}
     S.busy=false;
-    if(error){S.err=werr(error);render();return}
     delete draft[dkey()];saveDraft();finish=null;S.tab='historial';await loadClient();render();return;
   }
   /* entrenador */
