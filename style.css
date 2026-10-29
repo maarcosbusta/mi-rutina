@@ -51,6 +51,8 @@ nav{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);paddin
 .dseg{display:grid;grid-template-columns:repeat(var(--n,2),1fr);background:var(--chip);border-radius:14px;padding:4px;gap:4px}
 .dseg button{border:0;background:none;color:var(--muted);font:700 16px var(--body);padding:11px 6px;border-radius:11px;cursor:pointer}
 .dseg button[aria-pressed=true]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px #11171C26}
+/* día ya hecho: en verde de completado y no se puede abrir */
+.dseg button.hecho{background:var(--done-soft);color:var(--done);cursor:default}
 .wk button{font:700 14px var(--body)}
 
 /* progreso y mapa de bloques */

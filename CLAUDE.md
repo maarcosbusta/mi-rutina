@@ -12,7 +12,7 @@ Página estática sin build: GitHub Pages sirve los ficheros tal cual. Backend: 
 
 | Fichero | Qué hay |
 | --- | --- |
-| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`. Lleva `?v=32` para saltarse la caché: súbelo en los tres ficheros al publicar cambios de CSS/JS. |
+| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`. Lleva `?v=34` para saltarse la caché: súbelo en los tres ficheros al publicar cambios de CSS/JS. |
 | `config.js` | URL y clave **anon** de Supabase (pública por diseño; los permisos los dan las políticas RLS). Nunca pongas aquí la clave `service_role`. |
 | `app.js` | Toda la app (~620 líneas). Ver abajo. |
 | `style.css` | Estilos. Bloques: "barra superior", "semanas y días", "progreso y mapa de bloques", "bloque de superserie", "barra fija de sesión", "botones y formularios", "panel del entrenador", "editor del entrenador", "marca Marcos Bustamante", "series desplegables", "tipo de bloque". Tema oscuro en `:root[data-theme="dark"]`. |

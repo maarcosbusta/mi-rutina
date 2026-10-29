@@ -36,7 +36,7 @@ async function enter(){
   const {data,error}=await sb.from('profiles').select('*').eq('id',user.id).single();
   if(netErr(error)){S.state='offline';render();return}
   if(error||!data){S.state='login';S.err='No se pudo cargar tu perfil. Avisa a tu entrenador.';render();return}
-  me=data;draft=loadJ('rutina-draft-'+me.id,{});S.err='';S.prevOn=false;S.prev=null;selClient=null;edit=null;finish=null;S.w=0;S.d=0;S.tab=isCoach()?'clientes':'rutina';
+  me=data;draft=loadJ('rutina-draft-'+me.id,{});S.err='';S.prevOn=false;S.prev=null;selClient=null;edit=null;finish=null;S.w=0;S.d=0;S.auto=true;S.tab=isCoach()?'clientes':'rutina';
   S.welcome=!isCoach()&&!(()=>{try{return localStorage.getItem('welcome-'+me.id)}catch(e){return 1}})();
   if(isCoach()){S.state='coach';render();await loadCoach()}else{S.state='client';render();await loadClient()}
 }
@@ -72,6 +72,7 @@ async function loadClient(){
   sessions=(s.data||[]).map(x=>({...x,date:x.performed_at}));
   await loadComments(sessions.map(x=>x.id));
   await loadMsgs();
+  if(S.auto&&routine){S.auto=false;goNext()}
   soft();
 }
 async function loadCoach(){
@@ -115,10 +116,16 @@ const isFile=v=>/\.(mp4|webm|mov)(\?|#|$)/i.test(String(v||'').trim());
 const clipHTML=it=>`<video class="clip" src="${esc(it.video)}" muted loop playsinline controls preload="none" aria-label="Vídeo de ${esc(it.name)}"></video>`;
 const tipsHTML=it=>{const ts=String(it.tips||'').split(';').map(x=>x.trim()).filter(Boolean);return ts.length?`<ol class="tips">${ts.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`:''};
 const vidHTML=it=>(isFile(it.video)?clipHTML(it):it.video?`<a class="vid" href="${esc(it.video)}" target="_blank" rel="noopener">${PLAY}Ver vídeo</a>`:'<span class="novid">Sin vídeo</span>')+tipsHTML(it);
+// Día ya hecho: el cliente guardó una sesión de esa semana y ese día
+const isDone=(w,d)=>!isCoach()&&sessions.some(s=>+s.week===w&&+s.day===d);
+// Primer día sin hacer de una semana (o -1 si están todos hechos)
+const firstFree=w=>routine.weeks[w].days.findIndex((_,d)=>!isDone(w,d));
+// Lleva al cliente al primer día pendiente de toda la rutina
+function goNext(){for(let w=0;w<routine.weeks.length;w++){const d=firstFree(w);if(d>=0){S.w=w;S.d=d;return}}}
 function nav(m,withAdd){
   if(!withAdd){
     const ds=m.weeks[S.w].days;
-    return `<nav>${m.weeks.length>1?`<div class="dseg wk" style="--n:${m.weeks.length}">${m.weeks.map((w,i)=>`<button data-w="${i}" aria-pressed="${i===S.w}">${esc(w.name.replace(/^Semana/i,'Semana'))}</button>`).join('')}</div>`:''}<div class="dseg" style="--n:${ds.length}">${ds.map((d,i)=>`<button data-d="${i}" aria-pressed="${i===S.d}">${esc(d.name)}</button>`).join('')}</div></nav>`;
+    return `<nav>${m.weeks.length>1?`<div class="dseg wk" style="--n:${m.weeks.length}">${m.weeks.map((w,i)=>`<button data-w="${i}" aria-pressed="${i===S.w}">${esc(w.name.replace(/^Semana/i,'Semana'))}</button>`).join('')}</div>`:''}<div class="dseg" style="--n:${ds.length}">${ds.map((d,i)=>{const h=isDone(S.w,i);return `<button data-d="${i}" aria-pressed="${i===S.d}"${h?' class="hecho" disabled aria-label="'+esc(d.name)+', hecho"':''}>${esc(d.name)}${h?' ✓':''}</button>`}).join('')}</div></nav>`;
   }
   return `<nav><div class="row">${m.weeks.map((w,i)=>`<button class="chip" data-w="${i}" aria-pressed="${i===S.w}">${esc(w.name.replace(/^Semana/i,'Sem'))}</button>`).join('')}${withAdd?'<button class="chip add" data-act="addwk">+ Semana</button>':''}</div>
   <div class="row">${m.weeks[S.w].days.map((d,i)=>`<button class="chip day" data-d="${i}" aria-pressed="${i===S.d}">${esc(d.name)}</button>`).join('')}${withAdd?'<button class="chip add" data-act="addday">+ Día</button>':''}</div></nav>`;
@@ -237,6 +244,7 @@ function clientRoutine(){
     if(g.block)return normalHTML(g,gi,gi===curG);
     return `<article class="card bcard">${g.items.map(it=>exHTML(it,gi===curG)).join('')}</article>`;
   }).join('')||'<div class="empty">Este día aún no tiene ejercicios.</div>';
+  if(isDone(S.w,S.d))return nav(routine)+`<main><div class="empty">✓ Este día ya está hecho. ${routine.weeks.every((_,w)=>firstFree(w)<0)?'¡Has terminado toda la rutina! Tu entrenador te preparará la siguiente.':firstFree(S.w)<0?'Esta semana ya está completa: pasa a la siguiente semana arriba.':'Elige el siguiente día arriba.'}</div></main>`;
   const fin=finish?`<div class="sheet"><h2>Terminar sesión</h2><label>Notas para tu entrenador (opcional)<textarea id="fnote" placeholder="Dolor, sensaciones, cambios que hiciste...">${esc(finish.notes)}</textarea></label><div><label>¿Cuánto esfuerzo te ha costado?</label><p class="ft" style="margin:2px 0 8px">1 = muy suave · 10 = al máximo. Al tocar un número se guarda la sesión.</p><div class="esf">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-act="effort" data-n="${n}" aria-pressed="${finish.effort===n}" ${S.busy?'disabled':''} aria-label="Esfuerzo ${n} de 10">${n}</button>`).join('')}</div></div>${S.busy?'<p class="ft" role="status">Guardando…</p>':''}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="back" data-act="cancelfin">Seguir entrenando</button></div>`
     :restBar()+`<div class="dock"><div class="dk"><b>${done}</b><small>de ${total} series</small></div><button class="rbtn" data-act="rest" aria-label="Temporizador de descanso">⏱</button><button class="btn" data-act="fin" ${done?'':'disabled'}>Terminar sesión</button></div>`;
   return nav(routine)+`<main>${map}${cards}${fin}</main>`+exmHTML()+(S.toast?`<div class="toast" role="status">${esc(S.toast)}</div>`:'');
@@ -413,7 +421,7 @@ async function act(a,t){
   if(a==='vid'){const id=t.dataset.id;S.vid.has(id)?S.vid.delete(id):S.vid.add(id);render();return}
   if(a==='cancelfin'){finish=null;render();return}
   if(a==='effort'||a==='savesession'){
-    if(S.busy)return;if(a==='effort')finish.effort=+t.dataset.n;
+    if(S.busy||isDone(S.w,S.d))return;if(a==='effort')finish.effort=+t.dataset.n;
     S.busy=true;S.err='';render();
     const day=routine.weeks[S.w].days[S.d];
     const items=day.items.map(it=>({id:it.id,block:it.block||'',name:it.name,cat:it.cat||'',plan:{series:it.series||'',reps:it.reps||'',kg:it.kg||''},sets:dget(it).map(s=>({kg:s.kg,reps:s.reps,done:s.done}))}));
@@ -422,7 +430,7 @@ async function act(a,t){
     // El esfuerzo va en una tabla aparte que el cliente puede escribir pero no leer
     if(finish.effort){const {error:ee}=await sb.from('session_effort').insert({session_id:ns.id,client_id:me.id,effort:finish.effort});if(ee)console.warn('esfuerzo no guardado',ee)}
     S.busy=false;
-    delete draft[dkey()];saveDraft();finish=null;S.tab='historial';await loadClient();render();return;
+    delete draft[dkey()];saveDraft();finish=null;S.tab='historial';S.auto=true;await loadClient();render();return;
   }
   /* entrenador */
   if(a==='preview'){
@@ -647,7 +655,7 @@ document.addEventListener('click',e=>{
   if(t.dataset.go){const el=document.getElementById(t.dataset.go);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return}
   const y=scrollY;
   if(t.dataset.tab){S.tab=t.dataset.tab;selClient=null;S.err='';render();if(S.tab==='chat'&&me)markRead(me.id);return}
-  if(t.dataset.w!==undefined){S.w=+t.dataset.w;S.d=0;render();scrollTo(0,y);return}
+  if(t.dataset.w!==undefined){S.w=+t.dataset.w;S.d=0;if(S.state==='client'&&routine&&!S.prevOn){const d=firstFree(S.w);if(d>=0)S.d=d}render();scrollTo(0,y);return}
   if(t.dataset.d!==undefined){S.d=+t.dataset.d;render();scrollTo(0,y);return}
   if(t.dataset.act)act(t.dataset.act,t).then(()=>scrollTo(0,y));
 });
