@@ -187,7 +187,12 @@ function groupsOf(items){const gs=[];items.forEach((it,i)=>{const g=gs[gs.length
 const isSS=g=>!!g.block&&(g.items[0].ss!==undefined?!!g.items[0].ss:g.items.length>1);
 // En una superserie, series y descanso son del bloque: se copian del primer ejercicio.
 function syncSS(g){const f=g.items[0];g.items.forEach(it=>{it.ss=true;it.series=f.series;it.rest=f.rest})}
-const dget=it=>{const k=dkey();draft[k]=draft[k]||{};const n=isCardio(it)?1:(parseInt(it.series)||1),a=draft[k][it.id]=draft[k][it.id]||[];while(a.length<n)a.push({kg:'',reps:'',done:false});return a};
+const dget=it=>{const k=dkey();draft[k]=draft[k]||{};const n=isCardio(it)?1:(parseInt(it.series)||1),a=draft[k][it.id]=draft[k][it.id]||[];while(a.length<n)a.push({kg:'',reps:'',done:false});
+  // Serie sin tocar: se rellena sola (auto) con la última vez o, si no hay, con lo que mandó el entrenador
+  if(!isCardio(it))a.forEach((s,i)=>{if(s.auto===undefined&&!s.done&&!s.kg&&!s.reps){const f=pfill(it,i);s.kg=f.kg;s.reps=f.reps;s.auto=!!(f.kg||f.reps)}});return a};
+// Primer número del plan («20 kg» → 20, «8-10» → 8)
+const num1=v=>(String(v||'').trim().match(/^\d+(?:[.,]\d+)?/)||[''])[0];
+function pfill(it,i){const l=(lastSets(it)||[])[i];return l&&(l.kg||l.reps)?{kg:l.kg||'',reps:l.reps||''}:{kg:num1(it.kg),reps:num1(it.reps)}}
 function lastSets(it){
   const nm=String(it.name||'').trim().toLowerCase();
   for(const s of sessions){const x=(s.items||[]).find(y=>y.id===it.id)||(s.items||[]).find(y=>String(y.name||'').trim().toLowerCase()===nm);if(x){const ss=x.sets||[];if(ss.some(q=>q.done&&(q.kg||q.reps)))return ss}}
@@ -231,7 +236,7 @@ function clientRoutine(){
     const c=isCardio(it);const sets=dget(it);
     const last=lastFor(it),ls=lastSets(it)||[];
     const rows=sets.map((s,i)=>c?`<div class="srow c"><i>${i+1}</i><span>${esc(it.series||'')} min</span><button class="set" data-ex="${it.id}" data-i="${i}" data-act="tog" aria-pressed="${s.done}" aria-label="Hecho">${s.done?'✓':'•'}</button></div>`
-      :`<div class="srow"><i>${i+1}</i><input inputmode="decimal" data-ex="${it.id}" data-i="${i}" data-fld="kg" value="${esc(s.kg)}" placeholder="${esc((ls[i]||{}).kg||(/^\d/.test(it.kg||'')?it.kg:'kg'))}" aria-label="Kilos serie ${i+1}"><input inputmode="numeric" data-ex="${it.id}" data-i="${i}" data-fld="reps" value="${esc(s.reps)}" placeholder="${esc((ls[i]||{}).reps||'reps')}" aria-label="Repeticiones serie ${i+1}"><button class="set" data-ex="${it.id}" data-i="${i}" data-act="tog" aria-pressed="${s.done}" aria-label="Serie ${i+1} hecha">${s.done?'✓':'•'}</button></div>`).join('');
+      :`<div class="srow"><i>${i+1}</i><input inputmode="decimal" data-ex="${it.id}" data-i="${i}" data-fld="kg" value="${esc(s.kg)}"${s.auto&&!s.done?' class="auto"':''} placeholder="${esc((ls[i]||{}).kg||(/^\d/.test(it.kg||'')?it.kg:'kg'))}" aria-label="Kilos serie ${i+1}"><input inputmode="numeric" data-ex="${it.id}" data-i="${i}" data-fld="reps" value="${esc(s.reps)}"${s.auto&&!s.done?' class="auto"':''} placeholder="${esc((ls[i]||{}).reps||'reps')}" aria-label="Repeticiones serie ${i+1}"><button class="set" data-ex="${it.id}" data-i="${i}" data-act="tog" aria-pressed="${s.done}" aria-label="Serie ${i+1} hecha">${s.done?'✓':'•'}</button></div>`).join('');
     const plan=c?[it.series&&it.series+' min',it.reps].filter(Boolean).join(' · '):[it.series&&it.series+' series',it.reps,it.kg&&('Carga: '+n$(it.kg)),it.rest&&'descanso '+it.rest].filter(Boolean).join(' · ');
     const k=dkey()+'-e'+it.id,nd=sets.filter(s=>s.done).length,all=nd===sets.length,op=S.ro[k]!==undefined?S.ro[k]:!!cur&&!all;
     return `<details class="bex ro" data-k="${k}" data-b="${k}"${op?' open':''}><summary class="bsum"><span class="name">${esc(it.name)}</span><span class="cnt ${all?'full':''}">${nd}/${sets.length}</span>${CHEV}</summary>${plan?`<div class="plan">${esc(plan)}</div>`:''}${last?`<p class="hint">Última vez: ${esc(last)}</p>`:''}${rows}<div style="margin-top:6px">${vidHTML(it)}</div></details>`;
@@ -255,7 +260,7 @@ function clientRoutine(){
       rh+=`<details class="round ro" data-k="${rk}" data-b="${bk}"${op?' open':''}><summary class="rh"><span>Serie ${r+1}</span><button class="rall" data-act="round" data-ids="${have.map(it=>it.id).join(',')}" data-i="${r}" aria-pressed="${rdone}">${rdone?'Serie hecha ✓':'Marcar toda la serie'}</button>${CHEV}</summary>`+g.items.map((it,k)=>{
         const s=dget(it)[r];if(!s)return '';
         const ctl=isCardio(it)?`<span class="rc">${esc(it.series||'')} min</span>`
-          :`<input inputmode="decimal" data-ex="${it.id}" data-i="${r}" data-fld="kg" value="${esc(s.kg)}" placeholder="${esc(((lastSets(it)||[])[r]||{}).kg||(/^\d/.test(it.kg||'')?it.kg:'kg'))}" aria-label="Kilos ${esc(it.name)} serie ${r+1}"><input inputmode="numeric" data-ex="${it.id}" data-i="${r}" data-fld="reps" value="${esc(s.reps)}" placeholder="${esc(((lastSets(it)||[])[r]||{}).reps||'reps')}" aria-label="Repeticiones ${esc(it.name)} serie ${r+1}">`;
+          :`<input inputmode="decimal" data-ex="${it.id}" data-i="${r}" data-fld="kg" value="${esc(s.kg)}"${s.auto&&!s.done?' class="auto"':''} placeholder="${esc(((lastSets(it)||[])[r]||{}).kg||(/^\d/.test(it.kg||'')?it.kg:'kg'))}" aria-label="Kilos ${esc(it.name)} serie ${r+1}"><input inputmode="numeric" data-ex="${it.id}" data-i="${r}" data-fld="reps" value="${esc(s.reps)}"${s.auto&&!s.done?' class="auto"':''} placeholder="${esc(((lastSets(it)||[])[r]||{}).reps||'reps')}" aria-label="Repeticiones ${esc(it.name)} serie ${r+1}">`;
         return `<div class="rrow"><span class="rn"><em>${esc(it.name)}</em></span>${ctl}<button class="set" data-ex="${it.id}" data-i="${r}" data-act="tog" aria-pressed="${s.done}" aria-label="${esc(it.name)} serie ${r+1} hecha">${s.done?'✓':'•'}</button></div>`;
       }).join('')+`</details>`;
     }
@@ -1009,7 +1014,7 @@ async function act(a,t){
     if(S.busy||isDone(S.w,S.d))return;if(a==='effort')finish.effort=+t.dataset.n;
     S.busy=true;S.err='';render();
     const day=routine.weeks[S.w].days[S.d];
-    const items=day.items.map(it=>({id:it.id,block:it.block||'',name:it.name,cat:it.cat||'',plan:{series:it.series||'',reps:it.reps||'',kg:it.kg||''},sets:dget(it).map(s=>({kg:s.kg,reps:s.reps,done:s.done}))}));
+    const items=day.items.map(it=>({id:it.id,block:it.block||'',name:it.name,cat:it.cat||'',plan:{series:it.series||'',reps:it.reps||'',kg:it.kg||''},sets:dget(it).map(s=>s.auto&&!s.done?{kg:'',reps:'',done:false}:{kg:s.kg,reps:s.reps,done:s.done})}));// lo autorrellenado sin hacer no cuenta
     const {data:ns,error}=await sb.from('sessions').insert({client_id:me.id,week:S.w,day:S.d,wname:routine.weeks[S.w].name,dname:day.name,notes:finish.notes,items}).select('id').single();
     if(error){S.busy=false;S.err=werr(error);render();return}
     // El esfuerzo va en una tabla aparte que el cliente puede escribir pero no leer
@@ -1207,8 +1212,10 @@ document.addEventListener('input',e=>{
     if(t.dataset.f){const it=wk.days[S.d].items.find(x=>x.id===t.dataset.id);if(it)it[t.dataset.f]=t.value;return}
     if(t.dataset.bf){const g=groupsOf(wk.days[S.d].items).find(x=>x.start===+t.dataset.i);if(g)g.items.forEach(it=>it[t.dataset.bf]=t.value);return}
   }
-  if(t.dataset.fld&&routine){const it=findEx(t.dataset.ex);dget(it)[+t.dataset.i][t.dataset.fld]=t.value;saveDraft()}
+  if(t.dataset.fld&&routine){const it=findEx(t.dataset.ex),s=dget(it)[+t.dataset.i];s[t.dataset.fld]=t.value;s.auto=false;t.classList.remove('auto');t.parentNode.querySelectorAll(`input.auto[data-ex="${t.dataset.ex}"][data-i="${t.dataset.i}"]`).forEach(x=>x.classList.remove('auto'));saveDraft()}
 });
+// Al tocar un número puesto solo, se selecciona entero para escribir encima
+document.addEventListener('focusin',e=>{const t=e.target;if(t.classList&&t.classList.contains('auto')&&t.select)setTimeout(()=>t.select(),0)});
 // Superserie: al completar una serie se queda abierta y la siguiente no se abre sola.
 // Series normales: se cierra el ejercicio hecho y se abre el siguiente.
 function clearRo(t){const d=t.closest&&t.closest('details[data-b]');if(!d)return;

@@ -118,6 +118,8 @@ nav{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);paddin
 .srow i{font:800 16px var(--display);color:var(--muted);font-style:normal;text-align:center}
 .srow input,.sheet input,.sheet textarea{width:100%;font:500 17px var(--body);padding:11px;border:1.5px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);min-width:0}
 .srow input{text-align:center;font-variant-numeric:tabular-nums;height:48px;padding:0 4px}
+/* kg y reps puestos solos (última vez o plan): más claritos hasta que el cliente los toque o marque la serie */
+.srow input.auto,.rrow input.auto{color:var(--muted);color:color-mix(in srgb,var(--ink) 45%,transparent)}
 .vid{display:inline-flex;align-items:center;gap:8px;background:var(--ink);color:var(--bg);text-decoration:none;font-weight:700;font-size:15px;padding:11px 16px;border-radius:12px;min-height:46px}
 .vid svg{width:16px;height:16px;fill:currentColor}
 .novid{color:var(--muted);font-size:13px}
