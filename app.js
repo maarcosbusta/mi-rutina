@@ -17,6 +17,12 @@ const saveJ=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 const label=c=>(c&&(c.name||c.email))||'Cliente';
 const soft=()=>{const a=document.activeElement;if(a&&a.matches&&a.matches('input,textarea'))return;if(typeof pdg!=='undefined'&&pdg&&pdg.on)return;render()};
 const isCoach=()=>me&&me.role==='admin';
+/* ---------- tema claro / oscuro ---------- */
+// 'light', 'dark' o 'auto' (como el móvil). Se guarda en el navegador y en la cuenta (Supabase) para verse igual en todos los dispositivos
+const applyTheme=t=>{const r=document.documentElement;if(t==='light'||t==='dark')r.dataset.theme=t;else r.removeAttribute('data-theme')};
+const curTheme=()=>{try{return localStorage.getItem('tema')||'auto'}catch(e){return 'auto'}};
+function setTheme(t,sync){applyTheme(t);try{localStorage.setItem('tema',t)}catch(e){}if(sync&&sb&&me)sb.auth.updateUser({data:{theme:t}}).catch(()=>{})}
+applyTheme(curTheme());
 
 /* ---------- arranque y sesión ---------- */
 async function boot(){
@@ -33,6 +39,7 @@ const netErr=e=>!!e&&(!navigator.onLine||/fetch|network|load failed|timeout|offl
 async function enter(){
   let user;try{({data:{user}}=await sb.auth.getUser())}catch(e){S.state='offline';render();return}
   if(!user){S.state='login';render();return}
+  const ut=user.user_metadata&&user.user_metadata.theme;if(ut)setTheme(ut);
   const {data,error}=await sb.from('profiles').select('*').eq('id',user.id).single();
   if(netErr(error)){S.state='offline';render();return}
   if(error||!data){S.state='login';S.err='No se pudo cargar tu perfil. Avisa a tu entrenador.';render();return}
@@ -103,7 +110,10 @@ const head=(t,sub)=>`<header>${t}<div class="sub">${sub||''}</div></header>`;
 const TRAINER='Marcos Bustamante De La Escalera';
 const MARK='<span class="mark" aria-hidden="true">MB</span>';
 const initial=c=>String((c&&(c.name||c.email))||'?').trim()[0].toUpperCase();
-const topbar=()=>me?`<div class="appbar"><div class="brand">${MARK}<span class="bt2">Mi rutina<small>Entrenador: ${TRAINER}</small></span></div><div class="menuw"><button class="av" data-act="menu" aria-label="Cuenta" aria-expanded="${!!S.menu}" aria-haspopup="menu"${me.avatar_url?` style="background-image:url('${esc(me.avatar_url)}')"`:''}>${me.avatar_url?'':esc(initial(me))}</button><input type="file" id="avf" accept="image/*" hidden>${S.menu?`<div class="pop" role="menu"><small>${esc(me.email)}</small><button role="menuitem" data-act="photo">${me.avatar_url?'Cambiar foto':'Añadir foto de perfil'}</button>${me.avatar_url?'<button role="menuitem" data-act="rmphoto">Quitar foto</button>':''}<button role="menuitem" data-act="chpw">Cambiar contraseña</button><button role="menuitem" data-act="logout">Salir</button></div>`:''}</div></div>`:'';
+const topbar=()=>me?`<div class="appbar"><div class="brand">${MARK}<span class="bt2">Mi rutina<small>Entrenador: ${TRAINER}</small></span></div><div class="menuw"><button class="gear" data-act="opts" aria-label="Opciones" aria-expanded="${!!S.opts}" aria-haspopup="dialog">${GEAR}</button><button class="av" data-act="menu" aria-label="Cuenta" aria-expanded="${!!S.menu}" aria-haspopup="menu"${me.avatar_url?` style="background-image:url('${esc(me.avatar_url)}')"`:''}>${me.avatar_url?'':esc(initial(me))}</button><input type="file" id="avf" accept="image/*" hidden>${S.menu?`<div class="pop" role="menu"><small>${esc(me.email)}</small><button role="menuitem" data-act="photo">${me.avatar_url?'Cambiar foto':'Añadir foto de perfil'}</button>${me.avatar_url?'<button role="menuitem" data-act="rmphoto">Quitar foto</button>':''}<button role="menuitem" data-act="chpw">Cambiar contraseña</button><button role="menuitem" data-act="logout">Salir</button></div>`:''}${S.opts?optsHTML():''}</div></div>`:'';
+// Panel «Opciones» del engranaje (de momento, solo la apariencia)
+const GEAR='<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 4.3c.4-1.8 3-1.8 3.4 0a1.7 1.7 0 0 0 2.6 1.1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 0 0 1 2.5c1.8.5 1.8 3 0 3.5a1.7 1.7 0 0 0-1 2.5c.9 1.6-.9 3.3-2.4 2.4a1.7 1.7 0 0 0-2.6 1.1c-.4 1.8-3 1.8-3.4 0a1.7 1.7 0 0 0-2.6-1.1c-1.5.9-3.3-.8-2.4-2.4a1.7 1.7 0 0 0-1-2.5c-1.8-.5-1.8-3 0-3.5a1.7 1.7 0 0 0 1-2.5c-.9-1.6.9-3.3 2.4-2.4a1.7 1.7 0 0 0 2.6-1.1z"/><circle cx="12" cy="12" r="3"/></svg>';
+const optsHTML=()=>{const t=curTheme();return `<div class="pop opts" role="dialog" aria-label="Opciones"><b class="opth">Opciones</b><small>Apariencia</small>${[['light','Claro'],['dark','Oscuro'],['auto','Como el móvil']].map(([v,l])=>`<button data-act="theme" data-t="${v}" aria-pressed="${t===v}">${l}${t===v?'<span aria-hidden="true">✓</span>':''}</button>`).join('')}</div>`};
 function facts(it){
   const f=[];
   if(it.cat==='Cardio'){if(it.series)f.push(['Duración',it.series+' min','big']);if(it.reps)f.push(['Intensidad',it.reps]);}
@@ -960,7 +970,9 @@ async function act(a,t){
   if(a==='welcomeok'){const w=document.getElementById('wname'),nm=w&&w.value.trim();if(nm){const {error}=await sb.rpc('set_name',{n:nm});if(!error)me.name=nm}S.welcome=false;try{localStorage.setItem('welcome-'+me.id,'1')}catch(e){}render();return}
   if(a==='photo'){S.menu=false;render();document.getElementById('avf').click();return}
   if(a==='rmphoto'){S.menu=false;await setAvatar(null);return}
-  if(a==='menu'){S.menu=!S.menu;render();return}
+  if(a==='menu'){S.menu=!S.menu;S.opts=false;render();return}
+  if(a==='opts'){S.opts=!S.opts;S.menu=false;render();return}
+  if(a==='theme'){setTheme(t.dataset.t,true);render();return}
   if(a==='chpw'){S.menu=false;S.chpw=true;S.err='';S.state='setpw';render();return}
   if(a==='cancelpw'){S.chpw=false;S.err='';await enter();return}
   if(a==='forgot'){S.forgot=true;S.err='';S.info='';render();return}
@@ -1232,7 +1244,7 @@ document.addEventListener('change',async e=>{
   }
 });
 document.addEventListener('click',e=>{
-  if(S.menu&&!e.target.closest('.menuw')){S.menu=false;render()}
+  if((S.menu||S.opts)&&!e.target.closest('.menuw')){S.menu=false;S.opts=false;render()}
   const sm=e.target.closest('summary');
   if(sm&&!e.target.closest('button')&&sm.parentElement.dataset.k){const d=sm.parentElement;setTimeout(()=>{S.ro[d.dataset.k]=d.open},0)}
   if(edit&&!S.prevOn&&pclick(e))return;

@@ -39,6 +39,15 @@ header{padding-top:14px}
 .pop small{padding:8px 10px;color:var(--muted);font-size:13px;overflow-wrap:anywhere}
 .pop button{background:none;border:0;text-align:left;padding:12px 10px;border-radius:9px;font:600 15px var(--body);color:var(--ink);cursor:pointer}
 .pop button:hover{background:var(--chip)}
+/* engranaje de Opciones (tema claro / oscuro) */
+.menuw{display:flex;align-items:center;gap:8px}
+.gear{width:40px;height:40px;border-radius:50%;border:1.5px solid #ffffff40;background:none;color:#FFD400;display:grid;place-items:center;cursor:pointer}
+.gear:hover,.gear[aria-expanded="true"]{background:#ffffff14}
+.opts .opth{padding:8px 10px 0;font:400 20px var(--anton);text-transform:uppercase;letter-spacing:.02em;color:var(--ink)}
+.opts small{padding:6px 10px 2px;text-transform:uppercase;letter-spacing:.08em;font-size:11.5px;font-weight:600}
+.opts button{display:flex;justify-content:space-between;align-items:center}
+.opts button[aria-pressed="true"]{background:var(--chip)}
+.opts button span{color:var(--accent-ink);background:var(--accent);border-radius:50%;width:22px;height:22px;display:grid;place-items:center;font-size:13px}
 
 /* semanas y días */
 nav{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:12px 0 10px;z-index:5;display:grid;gap:8px;margin-top:8px}
@@ -334,7 +343,7 @@ summary:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .dside .appbar{margin:0;padding:0;background:none;box-shadow:none;border-radius:0;align-items:flex-start;gap:8px}
 .dside .brand{font-size:17px;align-items:flex-start}
 .dside .bt2 small{display:block;font-size:10.5px;line-height:1.3;margin-top:3px;color:#9AA1B0;opacity:1}
-.dside .pop{left:0;right:auto;color:var(--ink)}
+.dside .pop{position:fixed;left:14px;right:auto;top:76px;color:var(--ink)}
 .dnav{display:grid;gap:4px;position:relative;z-index:1}
 .dnav button{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;border-radius:6px;background:none;color:#EEF0F4;padding:11px 12px;cursor:pointer;font:700 15px var(--display);text-transform:uppercase;letter-spacing:.1em;text-align:left}
 .dnav button:hover{background:#ffffff14}
