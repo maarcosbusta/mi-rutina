@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prototipo · Peso automático</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Prototipo: no toca la app real, solo enseña cómo funcionaría */
+:root{--bg:#F4F6FA;--surface:#fff;--ink:#0B0B0D;--muted:#5B6170;--line:#DFE3EC;--accent:#FFD400;--blue:#1E4FD8;--done:#1F9D55;--done-soft:#E3F4EA;--bad:#D64545}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 'Barlow',system-ui,sans-serif;padding:16px}
+.wrap{max-width:440px;margin:0 auto}
+h1{font:400 30px/1 'Anton',Impact,sans-serif;text-transform:uppercase;margin:6px 0 4px}
+h1 span{background:var(--accent);padding:0 6px}
+.sub{color:var(--muted);margin:0 0 14px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.tabs button{border:2px solid var(--ink);background:var(--surface);border-radius:8px;padding:10px 6px;font:700 15px 'Barlow Condensed',sans-serif;text-transform:uppercase;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.tabs.v button[aria-pressed="true"]{background:var(--accent);color:var(--ink)}
+.lbl{font:700 12px 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:12px 0 4px}
+.card{background:var(--surface);border-radius:14px;box-shadow:0 1px 2px #0B0B0D14,0 6px 20px #0B0B0D0F;padding:14px;border-left:6px solid var(--blue)}
+.card b.n{font:800 21px 'Barlow Condensed',sans-serif;display:block}
+.plan{font:500 14px 'IBM Plex Mono',monospace;color:var(--muted)}
+.lt{font:500 13px 'IBM Plex Mono',monospace;color:var(--blue);display:block;margin-top:2px}
+.hd{display:grid;grid-template-columns:30px 1fr 1fr 48px;gap:8px;margin:12px 0 4px;font:700 12px 'Barlow Condensed',sans-serif;text-transform:uppercase;color:var(--muted);text-align:center}
+.srow{display:grid;grid-template-columns:30px 1fr 1fr 48px;gap:8px;align-items:center;margin-bottom:8px}
+.srow i{font:800 16px 'Barlow Condensed',sans-serif;color:var(--muted);font-style:normal;text-align:center}
+.srow input{width:100%;height:48px;text-align:center;font:500 17px 'IBM Plex Mono',monospace;border:1.5px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);min-width:0}
+.srow input::placeholder{color:#B4BAC6}
+/* Valor puesto solo: más clarito hasta que el cliente lo toque o marque la serie */
+.srow input.auto{color:rgba(11,11,13,.45)}
+.srow.ok input.auto{color:var(--ink)}
+.srow.ok input{background:var(--done-soft);border-color:#9AD7B3}
+.set{width:48px;height:48px;border-radius:8px;border:2px solid var(--line);background:var(--surface);color:var(--muted);font:800 18px 'Barlow Condensed',sans-serif;cursor:pointer}
+.srow.ok .set{background:var(--done);border-color:var(--done);color:#fff}
+.src{font-size:13px;color:var(--muted);margin:2px 0 0}
+.src mark{background:#FFF8CC;padding:0 4px;border-radius:3px}
+.btn{display:block;width:100%;margin-top:12px;border:0;border-radius:8px;padding:14px;background:var(--ink);color:#fff;font:700 17px 'Barlow Condensed',sans-serif;text-transform:uppercase;cursor:pointer}
+.btn.sec{background:var(--surface);color:var(--ink);border:2px solid var(--ink)}
+.coach{background:#0B0B0D;color:#fff;border-radius:14px;padding:14px;margin-top:14px}
+.coach h3{font:400 18px 'Anton',sans-serif;text-transform:uppercase;margin:0 0 8px;color:var(--accent)}
+.sets{display:flex;flex-wrap:wrap;gap:6px}
+.st{background:#1E2026;border-radius:6px;padding:6px 8px;font:500 14px 'IBM Plex Mono',monospace}
+.st em{font-style:normal;color:#9AA1B0;margin-right:5px}
+.st.ok{border:1.5px solid #34C77B}
+.st.bad{color:#FF7A6B;border:1.5px solid #FF7A6B}
+.note{background:var(--surface);border-radius:12px;padding:12px 14px;margin-top:16px;font-size:15px;border:2px dashed var(--line)}
+.note ul{margin:6px 0 0;padding-left:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Peso <span>automático</span></h1>
+  <p class="sub">Prototipo. Prueba a darle ✓ a las series sin escribir nada.</p>
+
+  <div class="lbl">Versión</div>
+  <div class="tabs v" id="ver">
+    <button data-v="antes" aria-pressed="false">Como está hoy</button>
+    <button data-v="nuevo" aria-pressed="true">Propuesta</button>
+  </div>
+
+  <div class="lbl">Cliente</div>
+  <div class="tabs" id="cas">
+    <button data-c="ya" aria-pressed="true">Ya lo ha hecho antes</button>
+    <button data-c="nunca" aria-pressed="false">Primera vez</button>
+  </div>
+
+  <div class="lbl">Lo que ve el cliente en el gimnasio</div>
+  <div class="card">
+    <b class="n">Sentadilla goblet</b>
+    <span class="plan">3 × 10 · 20 kg · 90"</span>
+    <span class="lt" id="ult"></span>
+    <div class="hd"><span>#</span><span>kg</span><span>reps</span><span>✓</span></div>
+    <div id="rows"></div>
+    <p class="src" id="src"></p>
+    <button class="btn" id="fin">Terminar sesión</button>
+    <button class="btn sec" id="reset">Empezar de nuevo</button>
+  </div>
+
+  <div class="coach" id="coach" hidden>
+    <h3>Lo que te llega a ti</h3>
+    <div class="sets" id="csets"></div>
+  </div>
+
+  <div class="note">
+    <b>Cómo funcionaría</b>
+    <ul>
+      <li>Al abrir el día, cada serie ya trae <b>kg y reps rellenos</b> (más clarito): los de su última sesión de ese ejercicio.</li>
+      <li>Si nunca lo ha hecho, pone <b>lo que tú mandaste</b> en la rutina.</li>
+      <li>Si cambia el número, se queda lo que escriba. Si solo pulsa ✓, se guarda lo que había.</li>
+      <li>Así ya no te llega «Sin datos».</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Datos de ejemplo: lo que mandó el entrenador y la última sesión del cliente
+const PLAN={series:3,kg:'20',reps:'10'};
+const ULTIMA=[{kg:'22,5',reps:'10'},{kg:'22,5',reps:'10'},{kg:'24',reps:'8'}];
+let ver='nuevo',cas='ya',sets=[];
+
+function inicio(){
+  const prev=cas==='ya'?ULTIMA:null;
+  sets=Array.from({length:PLAN.series},(_,i)=>{
+    // Valor de partida: última vez; si no hay, lo que mandó el entrenador
+    const base=prev?prev[i]:{kg:PLAN.kg,reps:PLAN.reps};
+    return ver==='nuevo'?{kg:base.kg,reps:base.reps,auto:true,done:false,ph:base}:{kg:'',reps:'',auto:false,done:false,ph:base};
+  });
+  document.getElementById('coach').hidden=true;
+  pinta();
+}
+function pinta(){
+  document.getElementById('ult').textContent=cas==='ya'?'Última vez: 22,5×10 · 22,5×10 · 24×8':'';
+  document.getElementById('rows').innerHTML=sets.map((s,i)=>`<div class="srow${s.done?' ok':''}"><i>${i+1}</i>
+    <input inputmode="decimal" data-i="${i}" data-f="kg" value="${s.kg}" placeholder="${ver==='antes'?s.ph.kg:'kg'}" class="${s.auto?'auto':''}">
+    <input inputmode="numeric" data-i="${i}" data-f="reps" value="${s.reps}" placeholder="${ver==='antes'?s.ph.reps:'reps'}" class="${s.auto?'auto':''}">
+    <button class="set" data-i="${i}">${s.done?'✓':'•'}</button></div>`).join('');
+  document.getElementById('src').innerHTML=ver==='antes'
+    ?'Hoy: los números grises son solo una pista. Si no escribe nada, la serie se guarda vacía.'
+    :`Los números más claritos se han puesto solos, ${cas==='ya'?'de su última sesión':'de lo que tú mandaste'}.`;
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.v){ver=b.dataset.v;document.querySelectorAll('#ver button').forEach(x=>x.setAttribute('aria-pressed',x===b));inicio();return}
+  if(b.dataset.c){cas=b.dataset.c;document.querySelectorAll('#cas button').forEach(x=>x.setAttribute('aria-pressed',x===b));inicio();return}
+  if(b.classList.contains('set')){const s=sets[+b.dataset.i];s.done=!s.done;pinta();return}
+  if(b.id==='reset'){inicio();return}
+  if(b.id==='fin'){
+    document.getElementById('csets').innerHTML=sets.map((s,i)=>{
+      const vacio=!s.kg&&!s.reps;
+      return `<span class="st ${vacio?'bad':s.done?'ok':''}"><em>${i+1}</em>${vacio?'Sin datos':(s.kg||'–')+' kg × '+(s.reps||'–')}</span>`}).join('');
+    const c=document.getElementById('coach');c.hidden=false;c.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+});
+document.addEventListener('input',e=>{
+  const t=e.target;if(t.dataset.i==null)return;
+  const s=sets[+t.dataset.i];s[t.dataset.f]=t.value;s.auto=false;t.classList.remove('auto');
+});
+inicio();
+</script>
+</body>
+</html>
