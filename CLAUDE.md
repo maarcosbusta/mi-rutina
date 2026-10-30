@@ -12,7 +12,7 @@ Página estática sin build: GitHub Pages sirve los ficheros tal cual. Backend: 
 
 | Fichero | Qué hay |
 | --- | --- |
-| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`. Lleva `?v=46` para saltarse la caché: súbelo en los tres ficheros al publicar cambios de CSS/JS. |
+| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`. Lleva `?v=47` para saltarse la caché: súbelo en los tres ficheros al publicar cambios de CSS/JS. |
 | `config.js` | URL y clave **anon** de Supabase (pública por diseño; los permisos los dan las políticas RLS). Nunca pongas aquí la clave `service_role`. |
 | `app.js` | Toda la app (~1200 líneas). Ver abajo. |
 | `style.css` | Estilos. Bloques: "barra superior", "semanas y días", "progreso y mapa de bloques", "bloque de superserie", "barra fija de sesión", "botones y formularios", "panel del entrenador", "editor del entrenador", "marca Marcos Bustamante", "series desplegables", "tipo de bloque", "formulario añadir cliente", "vista de escritorio del entrenador (Mac)", "pestaña Ejercicios", "programador de rutinas" (siempre en claro, clases `pg-`), "pestaña Programador rutinas" (clases `pc-`), "descanso «todo en negro»" (`.rest`) y "nota del fisio" (`.nota`). Tema oscuro en `:root[data-theme="dark"]`. |
@@ -53,7 +53,7 @@ Tablas que usa la app:
 - RPC: `mark_read`, `set_name`, `set_avatar`.
 - Edge Function `invitar-cliente` (`supabase/functions/invitar-cliente/index.ts`): comprueba que quien llama es admin y envía la invitación por correo con la clave service_role (solo en el servidor). Si la cambias, vuelve a desplegarla en Supabase.
 
-Ejercicio dentro de `items`: `{id, block, name, cat, series, reps, kg, rest, video, tips, ss}`. `video` puede ser un archivo propio (`.mp4/.webm/.mov`, p. ej. `videos/sentadilla.mp4` en este repositorio), que se ve dentro de la tarjeta, o un enlace (YouTube), que abre fuera. `tips` = claves técnicas separadas por `;`. `block` agrupa ejercicios seguidos; `ss` marca superserie (si falta, 2+ ejercicios en el bloque = superserie).
+Ejercicio dentro de `items`: `{id, block, name, cat, series, reps, kg, rest, video, tips, ss}`. `video` puede ser un archivo propio (`.mp4/.webm/.mov`, p. ej. `videos/sentadilla.mp4` en este repositorio), que se ve dentro de la tarjeta, o un enlace de YouTube, que también se ve dentro de la tarjeta (`ytClip`, `inApp`, `clipHTML`): en silencio y, si el enlace lleva `&start=X&end=Y` (segundos), solo ese tramo. Otros enlaces abren fuera. `tips` = claves técnicas separadas por `;`. `block` agrupa ejercicios seguidos; `ss` marca superserie (si falta, 2+ ejercicios en el bloque = superserie).
 
 En el navegador (localStorage): `rutina-draft-<id>` (series a medio apuntar), `welcome-<id>`, `seen-<id>`, `tema` (respaldo de `session_seen`).
 

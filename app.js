@@ -15,7 +15,7 @@ let msgs=[],comments={},efforts={},feed=[],seen={},routine=null,sessions=[],draf
 const loadJ=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch(e){return f}};
 const saveJ=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 const label=c=>(c&&(c.name||c.email))||'Cliente';
-const soft=()=>{const a=document.activeElement;if(a&&a.matches&&a.matches('input,textarea'))return;if(typeof pdg!=='undefined'&&pdg&&pdg.on)return;render()};
+const soft=()=>{const a=document.activeElement;if(a&&a.matches&&a.matches('input,textarea,iframe'))return;if(typeof pdg!=='undefined'&&pdg&&pdg.on)return;render()};
 const isCoach=()=>me&&me.role==='admin';
 /* ---------- tema claro / oscuro ---------- */
 // 'light', 'dark' o 'auto' (como el móvil). Se guarda en el navegador y en la cuenta (Supabase) para verse igual en todos los dispositivos
@@ -124,13 +124,20 @@ function facts(it){
 const bname=b=>String(b||'').replace(/^.*bloque\s*:\s*/i,'').trim();
 const factHTML=f=>f.map(([l,v,c])=>`<div class="fact ${c||''}"><small>${l}</small>${esc(v)}</div>`).join('');
 const isFile=v=>/\.(mp4|webm|mov)(\?|#|$)/i.test(String(v||'').trim());
-const clipHTML=it=>`<video class="clip" src="${esc(it.video)}" muted loop playsinline controls preload="none" aria-label="Vídeo de ${esc(it.name)}"></video>`;
+// YouTube dentro de la app: id del vídeo y tramo opcional (start/end en segundos, p. ej. …watch?v=ID&start=12&end=40)
+const ytClip=v=>{const u=String(v||'').trim(),m=u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/);if(!m)return null;
+  const q=k=>{const r=u.match(new RegExp('[?&]'+k+'=(\\d+)'));return r?+r[1]:null};return {id:m[1],start:q('start'),end:q('end')}};
+const inApp=v=>isFile(v)||!!ytClip(v);
+const clipHTML=it=>{const y=ytClip(it.video);
+  // YouTube en silencio (el cliente puede activar el sonido) y solo el tramo elegido
+  if(y)return `<iframe class="clip yt${/shorts\//.test(it.video)?' sh':''}" src="https://www.youtube.com/embed/${y.id}?mute=1&playsinline=1&rel=0&modestbranding=1${y.start!=null?'&start='+y.start:''}${y.end!=null?'&end='+y.end:''}" title="Vídeo de ${esc(it.name)}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe>`;
+  return `<video class="clip" src="${esc(it.video)}" muted loop playsinline controls preload="none" aria-label="Vídeo de ${esc(it.name)}"></video>`};
 const tipsHTML=it=>{const ts=String(it.tips||'').split(';').map(x=>x.trim()).filter(Boolean);return ts.length?`<ol class="tips">${ts.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`:''};
 // Nota del fisio (lo que ve el cliente): solo la primera clave, corta, en la caja con el punto amarillo de articulación.
 // El resto de claves, si las hay, quedan plegadas: no todos quieren todos los detalles.
 const notaHTML=it=>{const ts=String(it.tips||'').split(';').map(x=>x.trim()).filter(Boolean);if(!ts.length)return '';
   return `<div class="nota"><span class="nbar" aria-hidden="true"><i></i></span><div class="nc"><p>${esc(ts[0])}</p>${ts.length>1?`<details class="nmas"><summary>Más claves (${ts.length-1})</summary><ul>${ts.slice(1).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`:''}</div></div>`};
-const vidHTML=it=>(isFile(it.video)?clipHTML(it):it.video?`<a class="vid" href="${esc(it.video)}" target="_blank" rel="noopener">${PLAY}Ver vídeo</a>`:'<span class="novid">Sin vídeo</span>')+notaHTML(it);
+const vidHTML=it=>(inApp(it.video)?clipHTML(it):it.video?`<a class="vid" href="${esc(it.video)}" target="_blank" rel="noopener">${PLAY}Ver vídeo</a>`:'<span class="novid">Sin vídeo</span>')+notaHTML(it);
 // Día ya hecho: el cliente guardó una sesión de esa semana y ese día
 const isDone=(w,d)=>!isCoach()&&sessions.some(s=>+s.week===w&&+s.day===d);
 // Primer día sin hacer de una semana (o -1 si están todos hechos)
@@ -246,12 +253,12 @@ function clientRoutine(){
   };
   const groups=groupsOf(day.items);
   groups.forEach(g=>{if(isSS(g)){const f=g.items[0];g.items.forEach(it=>{if(!it.series)it.series=f.series;if(!it.rest)it.rest=f.rest})}});
-  const miniVid=it=>isFile(it.video)?`<button class="play" data-act="vid" data-id="${esc(it.id)}" aria-pressed="${S.vid.has(it.id)}" aria-label="Ver vídeo de ${esc(it.name)}">${PLAY}</button>`:it.video?`<a class="play" href="${esc(it.video)}" target="_blank" rel="noopener" aria-label="Ver vídeo de ${esc(it.name)}">${PLAY}</a>`:'';
+  const miniVid=it=>inApp(it.video)?`<button class="play" data-act="vid" data-id="${esc(it.id)}" aria-pressed="${S.vid.has(it.id)}" aria-label="Ver vídeo de ${esc(it.name)}">${PLAY}</button>`:it.video?`<a class="play" href="${esc(it.video)}" target="_blank" rel="noopener" aria-label="Ver vídeo de ${esc(it.name)}">${PLAY}</a>`:'';
   const planOf=it=>[it.reps,it.kg&&('Carga: '+n$(it.kg))].filter(Boolean).join(' · ');
   const blockHTML=(g,gi,cur)=>{
     const sr=g.items.find(x=>x.series),rs=g.items.find(x=>x.rest);
     const [bt,bd]=stat(g.items);
-    const legend=g.items.map((it,k)=>`<li class="ex"><span class="dot" aria-hidden="true"></span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small>${lastFor(it)?`<small class="lt">Última vez: ${esc(lastFor(it))}</small>`:''}</div><button class="cmx" data-act="exmsg" data-name="${esc(it.name)}" aria-label="Escribir sobre ${esc(it.name)}">💬</button>${miniVid(it)}${S.vid.has(it.id)&&isFile(it.video)?`<div class="lv">${clipHTML(it)}${notaHTML(it)}</div>`:''}</li>`).join('');
+    const legend=g.items.map((it,k)=>`<li class="ex"><span class="dot" aria-hidden="true"></span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small>${lastFor(it)?`<small class="lt">Última vez: ${esc(lastFor(it))}</small>`:''}</div><button class="cmx" data-act="exmsg" data-name="${esc(it.name)}" aria-label="Escribir sobre ${esc(it.name)}">💬</button>${miniVid(it)}${S.vid.has(it.id)&&inApp(it.video)?`<div class="lv">${clipHTML(it)}${notaHTML(it)}</div>`:''}</li>`).join('');
     const rounds=Math.max(0,...g.items.map(it=>dget(it).length));
     let rh='';
     const doneAt=r=>g.items.filter(it=>dget(it)[r]).every(it=>dget(it)[r].done);
@@ -549,7 +556,7 @@ function xMainHTML(){const X=S.x;return `<button class="back" data-x="back">← 
 function xDetHTML(it){
   if(!it)return '<div class="empty">Ese ejercicio ya no existe.</div>';
   const g=xgenOf(it.cat),p=it.prog!=null&&it.prog!==''?it.prog:'';
-  const vid=!it.video?`<div class="xvd no">Falta vídeo<button class="btn" data-x="editvid">+ Añadir vídeo</button></div>`:isFile(it.video)?clipHTML(it):`<a class="xvd" href="${esc(it.video)}" target="_blank" rel="noopener"><span class="xpl">${PLAY}</span>Ver vídeo</a>`;
+  const vid=!it.video?`<div class="xvd no">Falta vídeo<button class="btn" data-x="editvid">+ Añadir vídeo</button></div>`:inApp(it.video)?clipHTML(it):`<a class="xvd" href="${esc(it.video)}" target="_blank" rel="noopener"><span class="xpl">${PLAY}</span>Ver vídeo</a>`;
   return `<article class="xdt"><div class="dhero"><div class="dht"><small>// ${esc(xnice(g?g.name:'Sin general').toUpperCase())} › ${esc(xnice(it.cat).toUpperCase())}</small><h2>${esc(it.name)}</h2></div><div class="dacts"><button class="btn" data-x="edit">Editar</button></div></div><div class="dbody">
   ${S.x.msg?`<div class="ok" role="status">${esc(S.x.msg)}</div>`:''}${vid}${it.video?'<button class="xlk" data-x="editvid" style="justify-self:end">Cambiar vídeo</button>':''}
   <dl class="xdl"><div><dt>Material</dt><dd>${esc(it.mat||'—')}</dd></div><div><dt>Vídeo</dt><dd><span class="xvb ${xvs(it)}">${XVS[xvs(it)]}</span></dd></div><div><dt>Progresión</dt><dd>${p!==''?'Nivel '+esc(p):'—'}</dd></div></dl>

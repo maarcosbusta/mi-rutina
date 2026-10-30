@@ -170,6 +170,9 @@ nav{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);paddin
 .tag.ef{font-family:var(--mono)}.tag.ef.hi{background:#C0392B;color:#fff}
 /* vídeo propio dentro de la tarjeta */
 .clip{display:block;width:100%;max-height:60vh;aspect-ratio:9/16;object-fit:cover;background:#0D2A6B;border-radius:12px}
+/* YouTube dentro de la tarjeta: horizontal 16:9; los Shorts, verticales */
+.clip.yt{border:0;aspect-ratio:16/9;height:auto}
+.clip.yt.sh{aspect-ratio:9/16}
 .tips{margin:8px 0 0;padding-left:22px;font-size:15px}.tips li{margin:4px 0}
 /* nota del fisio: caja clara con barra negra y punto amarillo (articulación); solo la primera clave a la vista */
 .nota{display:flex;gap:12px;margin-top:10px;background:#F4F6FA;color:#0B0B0D;border:1px solid #DFE3EC;border-radius:12px;padding:12px;font:400 15px/1.35 var(--body)}
