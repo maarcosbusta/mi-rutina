@@ -126,7 +126,11 @@ const factHTML=f=>f.map(([l,v,c])=>`<div class="fact ${c||''}"><small>${l}</smal
 const isFile=v=>/\.(mp4|webm|mov)(\?|#|$)/i.test(String(v||'').trim());
 const clipHTML=it=>`<video class="clip" src="${esc(it.video)}" muted loop playsinline controls preload="none" aria-label="Vídeo de ${esc(it.name)}"></video>`;
 const tipsHTML=it=>{const ts=String(it.tips||'').split(';').map(x=>x.trim()).filter(Boolean);return ts.length?`<ol class="tips">${ts.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`:''};
-const vidHTML=it=>(isFile(it.video)?clipHTML(it):it.video?`<a class="vid" href="${esc(it.video)}" target="_blank" rel="noopener">${PLAY}Ver vídeo</a>`:'<span class="novid">Sin vídeo</span>')+tipsHTML(it);
+// Nota del fisio (lo que ve el cliente): solo la primera clave, corta, en la caja con el punto amarillo de articulación.
+// El resto de claves, si las hay, quedan plegadas: no todos quieren todos los detalles.
+const notaHTML=it=>{const ts=String(it.tips||'').split(';').map(x=>x.trim()).filter(Boolean);if(!ts.length)return '';
+  return `<div class="nota"><span class="nbar" aria-hidden="true"><i></i></span><div class="nc"><p>${esc(ts[0])}</p>${ts.length>1?`<details class="nmas"><summary>Más claves (${ts.length-1})</summary><ul>${ts.slice(1).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`:''}</div></div>`};
+const vidHTML=it=>(isFile(it.video)?clipHTML(it):it.video?`<a class="vid" href="${esc(it.video)}" target="_blank" rel="noopener">${PLAY}Ver vídeo</a>`:'<span class="novid">Sin vídeo</span>')+notaHTML(it);
 // Día ya hecho: el cliente guardó una sesión de esa semana y ese día
 const isDone=(w,d)=>!isCoach()&&sessions.some(s=>+s.week===w&&+s.day===d);
 // Primer día sin hacer de una semana (o -1 si están todos hechos)
@@ -197,12 +201,26 @@ let restTimer=null,restIv=null;
 const fmtT=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
 function beep(){try{navigator.vibrate&&navigator.vibrate([250,120,250]);const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.15;o.start();o.stop(c.currentTime+.35)}catch(e){}}
 function startRest(sec){
-  if(!sec)return;clearInterval(restIv);restTimer={end:Date.now()+sec*1000};render();
-  restIv=setInterval(()=>{if(!restTimer){clearInterval(restIv);return}const left=Math.ceil((restTimer.end-Date.now())/1000),el=document.getElementById('restt');
-    if(left<=0){stopRest(true);return}if(el)el.textContent=fmtT(left)},250);
+  if(!sec)return;clearInterval(restIv);restTimer={end:Date.now()+sec*1000,dur:sec*1000};render();
+  restIv=setInterval(()=>{if(!restTimer){clearInterval(restIv);return}const left=Math.ceil((restTimer.end-Date.now())/1000),el=document.getElementById('restt'),bar=document.getElementById('restp');
+    if(left<=0){stopRest(true);return}if(el)el.textContent=fmtT(left);if(bar)bar.style.width=restPct()+'%'},250);
 }
 function stopRest(ring){clearInterval(restIv);restTimer=null;if(ring)beep();render()}
-function restBar(){if(!restTimer)return '';const left=Math.max(0,Math.ceil((restTimer.end-Date.now())/1000));return `<div class="rest" role="timer" aria-live="off"><span>Descanso</span><b id="restt">${fmtT(left)}</b><button data-act="restadd">+15 s</button><button data-act="restskip">Saltar</button></div>`}
+// Lo que queda de descanso, en %, para la línea amarilla que se acorta
+const restPct=()=>restTimer?Math.max(0,Math.min(100,(restTimer.end-Date.now())/restTimer.dur*100)):0;
+// Siguiente serie por hacer del día (en superserie, por rondas), para enseñarla durante el descanso
+function nextSet(){const w=routine&&routine.weeks[S.w],day=w&&w.days[S.d];if(!day)return null;
+  for(const g of groupsOf(day.items)){
+    if(isSS(g)){const n=Math.max(...g.items.map(it=>dget(it).length));for(let i=0;i<n;i++)for(const it of g.items){const s=dget(it)[i];if(s&&!s.done)return{it,i,n:dget(it).length}}}
+    else for(const it of g.items){const ss=dget(it),i=ss.findIndex(s=>!s.done);if(i>=0)return{it,i,n:ss.length}}}
+  return null}
+// Descanso «todo en negro»: cuenta atrás, línea amarilla que se acorta y debajo la próxima serie con lo que hizo la última vez
+function restBar(){if(!restTimer)return '';const left=Math.max(0,Math.ceil((restTimer.end-Date.now())/1000));
+  const nx=nextSet();let next='';
+  if(nx){const it=nx.it,c=isCardio(it),l=(lastSets(it)||[])[nx.i],kr=(kg,r)=>[kg&&n$(kg),r].filter(Boolean).join(' × ');
+    const plan=c?'':kr(it.kg,it.reps),last=l&&l.done&&(l.kg||l.reps)?kr(l.kg,l.reps):'';
+    next=`<div class="rnext"><span>Ahora: <strong>${esc(it.name)}</strong>${c?'':` · serie ${nx.i+1} de ${nx.n}`}</span>${plan||last?`<span class="rd"><span>${esc(plan)}</span>${last?`<em>Última vez: ${esc(last)}</em>`:''}</span>`:''}</div>`}
+  return `<div class="rest" role="timer" aria-live="off"><div class="rtop"><span class="rl">Descanso</span><b id="restt">${fmtT(left)}</b><button data-act="restadd">+15 s</button><button data-act="restskip">Saltar</button></div>${next}<i class="rbar" id="restp" style="width:${restPct()}%"></i></div>`}
 function findEx(id){for(const w of routine.weeks)for(const d of w.days)for(const i of d.items)if(i.id===id)return i}
 function clientRoutine(){
   normNav(routine);
@@ -225,7 +243,7 @@ function clientRoutine(){
   const blockHTML=(g,gi,cur)=>{
     const sr=g.items.find(x=>x.series),rs=g.items.find(x=>x.rest);
     const [bt,bd]=stat(g.items);
-    const legend=g.items.map((it,k)=>`<li class="ex"><span class="dot" aria-hidden="true"></span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small>${lastFor(it)?`<small class="lt">Última vez: ${esc(lastFor(it))}</small>`:''}</div><button class="cmx" data-act="exmsg" data-name="${esc(it.name)}" aria-label="Escribir sobre ${esc(it.name)}">💬</button>${miniVid(it)}${S.vid.has(it.id)&&isFile(it.video)?`<div class="lv">${clipHTML(it)}${tipsHTML(it)}</div>`:''}</li>`).join('');
+    const legend=g.items.map((it,k)=>`<li class="ex"><span class="dot" aria-hidden="true"></span><div class="ln"><b>${esc(it.name)}</b><small>${esc(planOf(it))}</small>${lastFor(it)?`<small class="lt">Última vez: ${esc(lastFor(it))}</small>`:''}</div><button class="cmx" data-act="exmsg" data-name="${esc(it.name)}" aria-label="Escribir sobre ${esc(it.name)}">💬</button>${miniVid(it)}${S.vid.has(it.id)&&isFile(it.video)?`<div class="lv">${clipHTML(it)}${notaHTML(it)}</div>`:''}</li>`).join('');
     const rounds=Math.max(0,...g.items.map(it=>dget(it).length));
     let rh='';
     const doneAt=r=>g.items.filter(it=>dget(it)[r]).every(it=>dget(it)[r].done);
@@ -979,7 +997,7 @@ async function act(a,t){
   if(a==='backlogin'){S.forgot=false;S.err='';S.info='';render();return}
   if(a==='tog'){clearRo(t);const it=findEx(t.dataset.ex);const s=dget(it)[+t.dataset.i];s.done=!s.done;saveDraft();bexNext(t);if(s.done&&restSecs(it.rest)){startRest(restSecs(it.rest));return}render();return}
   if(a==='rest'){restTimer?stopRest():startRest(60);return}
-  if(a==='restadd'){if(restTimer){restTimer.end+=15000;render()}return}
+  if(a==='restadd'){if(restTimer){restTimer.end+=15000;restTimer.dur+=15000;render()}return}
   if(a==='restskip'){stopRest();return}
   if(a==='round'){clearRo(t);const ids=t.dataset.ids.split(','),i=+t.dataset.i;const its=ids.map(findEx);const all=its.every(it=>dget(it)[i].done);its.forEach(it=>{dget(it)[i].done=!all});saveDraft();const rs=Math.max(0,...its.map(it=>restSecs(it.rest)));if(!all&&rs){startRest(rs);return}render();return}
   if(a==='fin'){finish={effort:0,notes:''};S.err='';render();return}

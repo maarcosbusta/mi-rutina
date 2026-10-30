@@ -169,6 +169,15 @@ nav{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);paddin
 /* vídeo propio dentro de la tarjeta */
 .clip{display:block;width:100%;max-height:60vh;aspect-ratio:9/16;object-fit:cover;background:#0D2A6B;border-radius:12px}
 .tips{margin:8px 0 0;padding-left:22px;font-size:15px}.tips li{margin:4px 0}
+/* nota del fisio: caja clara con barra negra y punto amarillo (articulación); solo la primera clave a la vista */
+.nota{display:flex;gap:12px;margin-top:10px;background:#F4F6FA;color:#0B0B0D;border:1px solid #DFE3EC;border-radius:12px;padding:12px;font:400 15px/1.35 var(--body)}
+.nbar{flex:none;width:4px;background:#0B0B0D;border-radius:2px;position:relative}
+.nbar i{position:absolute;top:2px;left:-4px;width:12px;height:12px;border-radius:50%;background:#FFD400;border:2px solid #0B0B0D}
+.nc{min-width:0;display:grid;gap:6px}.nc p{margin:0}
+.nmas summary{cursor:pointer;font:700 13px/1.2 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5B6170;padding:6px 0}
+.nmas ul{margin:2px 0 0;padding-left:18px;color:#5B6170;font-size:14px}.nmas li{margin:3px 0}
+:root[data-theme="dark"] .nota{background:#15161A;color:#EEF0F4;border-color:#2A2D35}:root[data-theme="dark"] .nbar{background:#EEF0F4}:root[data-theme="dark"] .nmas summary,:root[data-theme="dark"] .nmas ul{color:#9AA1B0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .nota{background:#15161A;color:#EEF0F4;border-color:#2A2D35}:root:not([data-theme="light"]) .nbar{background:#EEF0F4}:root:not([data-theme="light"]) .nmas summary,:root:not([data-theme="light"]) .nmas ul{color:#9AA1B0}}
 .lv{flex-basis:100%;margin-top:8px}
 .hero{margin-top:36px;display:grid;gap:14px}
 .hero p{margin:0;color:var(--muted);max-width:46ch}
@@ -229,9 +238,16 @@ details.ses summary::-webkit-details-marker{display:none}
 
 .lt{color:var(--done)!important;font-weight:600}
 .rbtn{flex:none;width:48px;height:48px;border-radius:14px;border:1.5px solid #ffffff40;background:none;color:var(--bg);font-size:22px;cursor:pointer}
-.rest{position:sticky;bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:7;margin-top:14px;display:flex;align-items:center;gap:10px;background:var(--done);color:#fff;border-radius:16px;padding:10px 12px 10px 16px;box-shadow:var(--shadow)}
-.rest span{font:700 14px var(--body);opacity:.9}.rest b{flex:1;font:800 28px var(--display);font-variant-numeric:tabular-nums}
-.rest button{border:0;border-radius:11px;background:#ffffff30;color:#fff;font:700 14px var(--body);padding:10px 12px;cursor:pointer}
+/* descanso «todo en negro»: negro siempre (también en oscuro, con borde fino), una sola línea amarilla que se acorta y la próxima serie debajo */
+.rest{position:sticky;bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:7;margin-top:14px;background:#0B0B0D;color:#fff;border:1px solid #ffffff1f;border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.rtop{display:flex;align-items:center;gap:8px;padding:10px 10px 10px 16px}
+.rest .rl{font:700 14px/1 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#9AA1B0}
+.rest b{flex:1;font:600 28px/1 'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.rest button{border:1px solid #ffffff40;border-radius:6px;background:none;color:#fff;font:700 14px/1 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:0 12px;min-height:44px;white-space:nowrap;cursor:pointer}
+.rnext{margin:0 16px;padding:10px 0 14px;border-top:1px solid #2A2D35;display:grid;gap:4px;font:400 15px/1.35 var(--body)}
+.rd{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;font:500 13px 'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.rd em{font-style:normal;color:#9AA1B0}
+.rbar{position:absolute;left:0;bottom:0;height:4px;background:#FFD400;transition:width .25s linear}
 
 .cm{border-top:1px solid var(--line);padding-top:12px;display:grid;gap:8px}
 .cmt{font:800 13px var(--display);text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
