@@ -141,7 +141,7 @@ function normNav(m){
 /* ---------- acceso ---------- */
 function offlineView(){return `<div class="hero">${MARK}</div>`+head('<h1>Sin conexión</h1>','No consigo conectar con el servidor.')+`<main class="panel"><p class="hint" style="margin:0">Revisa tu wifi o tus datos móviles y vuelve a intentarlo. No se ha perdido nada de lo que habías anotado.</p><button class="btn big" data-act="retry">Reintentar</button></main>`}
 function welcomeHTML(){const n=me.name?String(me.name).split(' ')[0]:'';
-  return `<div class="mo" role="dialog" aria-modal="true"><div class="mc"><h2>¡Bienvenido${n?', '+esc(n):''}!</h2><small class="sub">Tu entrenador: ${esc(TRAINER)}</small>${me.name?'':'<label class="wn">¿Cómo te llamas?<input id="wname" autocomplete="name" maxlength="80" placeholder="Nombre y apellidos"></label>'}<ol class="wl"><li><b>Elige tu día</b> y ve bloque a bloque.</li><li><b>Apunta kg y repeticiones</b> y marca ✓ cada serie. El ⏱ cuenta tu descanso.</li><li><b>Al acabar</b>, pulsa «Terminar sesión» y puntúa el esfuerzo del 1 al 5.</li><li><b>¿Dudas o molestias?</b> Escríbeme con 💬 en un ejercicio o en la pestaña Chat.</li></ol><button class="btn big" data-act="welcomeok">Empezar</button></div></div>`}
+  return `<div class="mo" role="dialog" aria-modal="true"><div class="mc"><h2>¡Bienvenido${n?', '+esc(n):''}!</h2><small class="sub">Tu entrenador: ${esc(TRAINER)}</small>${me.name?'':'<label class="wn">¿Cómo te llamas?<input id="wname" autocomplete="name" maxlength="80" placeholder="Nombre y apellidos"></label>'}<ol class="wl"><li><b>Elige tu día</b> y ve bloque a bloque.</li><li><b>Apunta kg y repeticiones</b> y marca ✓ cada serie. El ⏱ cuenta tu descanso.</li><li><b>Al acabar</b>, pulsa «Terminar sesión» y puntúa el esfuerzo del 1 al 10.</li><li><b>¿Dudas o molestias?</b> Escríbeme con 💬 en un ejercicio o en la pestaña Chat.</li></ol><button class="btn big" data-act="welcomeok">Empezar</button></div></div>`}
 function loginView(){
   if(S.forgot)return head('<h1>Mi rutina</h1>','')+`<form class="auth" id="fForgot"><p class="hint">Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.</p><label>Correo<input type="email" id="em" autocomplete="email" required></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}${S.info?`<div class="ok" role="status">${esc(S.info)}</div>`:''}<button class="btn big" ${S.busy?'disabled':''}>${S.busy?'Enviando…':'Enviar enlace'}</button><button type="button" class="linkb" data-act="backlogin">Volver</button></form>`;
   return `<div class="bhero"><div class="bl">${MARK}<span class="bn2"><b>Marcos Bustamante</b><small>Fisio deportivo · Entrenamiento</small></span></div><h1>Entrena sano.<br><em>Rinde más.</em></h1></div><p class="hint" style="margin:18px 0 0">Entra con tu cuenta</p><form class="auth" id="fLogin"><label>Correo<input type="email" id="em" autocomplete="email" required></label><label>Contraseña<input type="password" id="pw" autocomplete="current-password" required></label>${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="btn big" ${S.busy?'disabled':''}>${S.busy?'Entrando…':'Entrar'}</button><button type="button" class="linkb" data-act="forgot">He olvidado mi contraseña</button><p class="hint">¿Aún no tienes cuenta? Tu entrenador te enviará una invitación por correo.</p></form>`;
@@ -246,7 +246,7 @@ function clientRoutine(){
     return `<article class="card bcard">${g.items.map(it=>exHTML(it,gi===curG)).join('')}</article>`;
   }).join('')||'<div class="empty">Este día aún no tiene ejercicios.</div>';
   if(isDone(S.w,S.d))return nav(routine)+`<main><div class="empty">✓ Este día ya está hecho. ${routine.weeks.every((_,w)=>firstFree(w)<0)?'¡Has terminado toda la rutina! Tu entrenador te preparará la siguiente.':firstFree(S.w)<0?'Esta semana ya está completa: pasa a la siguiente semana arriba.':'Elige el siguiente día arriba.'}</div></main>`;
-  const fin=finish?`<div class="sheet"><h2>Terminar sesión</h2><label>Notas para tu entrenador (opcional)<textarea id="fnote" placeholder="Dolor, sensaciones, cambios que hiciste...">${esc(finish.notes)}</textarea></label><div><label>¿Cuánto esfuerzo te ha costado?</label><p class="ft" style="margin:2px 0 8px">1 = muy suave · 10 = al máximo. Al tocar un número se guarda la sesión.</p><div class="esf">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-act="effort" data-n="${n}" aria-pressed="${finish.effort===n}" ${S.busy?'disabled':''} aria-label="Esfuerzo ${n} de 10">${n}</button>`).join('')}</div></div>${S.busy?'<p class="ft" role="status">Guardando…</p>':''}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="back" data-act="cancelfin">Seguir entrenando</button></div>`
+  const fin=finish?`<div class="sheet"><h2>Terminar sesión</h2><label>Notas para tu entrenador (opcional)<textarea id="fnote" placeholder="Dolor, sensaciones, cambios que hiciste...">${esc(finish.notes)}</textarea></label><div><label>¿Cuánto esfuerzo te ha costado?</label><p class="ft" style="margin:2px 0 8px">Puntúa la sesión entera, no la última serie. Al tocar un número se guarda la sesión.</p><div class="esf">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-act="effort" data-n="${n}" aria-pressed="${finish.effort===n}" ${S.busy?'disabled':''} aria-label="Esfuerzo ${n} de 10">${n}</button>`).join('')}</div><div class="ezon" aria-hidden="true"><span>Suave</span><span>Moderado</span><span>Duro</span><span>Máximo</span></div></div>${S.busy?'<p class="ft" role="status">Guardando…</p>':''}${S.err?`<div class="err" role="alert">${esc(S.err)}</div>`:''}<button class="back" data-act="cancelfin">Seguir entrenando</button></div>`
     :restBar()+`<div class="dock"><div class="dk"><b>${done}</b><small>de ${total} series</small></div><button class="rbtn" data-act="rest" aria-label="Temporizador de descanso">⏱</button><button class="btn" data-act="fin" ${done?'':'disabled'}>Terminar sesión</button></div>`;
   return nav(routine)+`<main>${map}${cards}${fin}</main>`+exmHTML()+(S.toast?`<div class="toast" role="status">${esc(S.toast)}</div>`:'');
 }
@@ -318,12 +318,21 @@ function sessionHTML(s){
   const body=gs.map((g,gi)=>`<div class="sb bk${gi%4}">${g.k?`<div class="sbh"><span class="sbn">${gi+1}</span>${esc(bname(g.k))}</div>`:''}${g.items.map(i=>`<div class="sx"><strong>${esc(i.name)}</strong><div class="sets">${(i.sets||[]).map((x,n)=>`<span class="st${x.done?' ok':''}"><em>${n+1}</em>${x.kg||x.reps?(x.kg?esc(x.kg)+' kg':'–')+' × '+(x.reps?esc(x.reps):'–'):'Sin datos'}</span>`).join('')}</div></div>`).join('')}</div>`).join('');
   return `<details class="ses" data-sid="${esc(s.id)}"${S.open&&S.open.has(s.id)?' open':''}><summary><div class="dt"><b>${day}</b><small>${esc(mon)}</small></div><div class="si"><strong>${esc(s.dname||'Sesión')}</strong><small>${esc(wk)}${s.wname?' · '+esc(s.wname):''}</small><div class="pb"><i style="width:${pct}%"></i></div><div class="sm"><span class="tag ${d===t&&t?'ok':''}">${d}/${t} series</span>${dots}${cs.length?`<span class="tag cmb">💬 ${cs.length}</span>`:''}</div></div><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary><div class="sbody">${body}${s.notes?`<div class="snote"><b>Nota</b>${esc(s.notes)}</div>`:''}${commentsHTML(s,cs)}</div></details>`;
 }
+// pantalla tras guardar la sesión: te llama por tu nombre, te dice qué viene y te invita a escribir
+function hechoHTML(){
+  const n=me.name?String(me.name).split(' ')[0]:'',now=new Date();
+  const mes=sessions.filter(s=>{const d=new Date(s.date);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()}).length;
+  const nd=!isDone(S.w,S.d)&&routine.weeks[S.w]&&routine.weeks[S.w].days[S.d];
+  const prox=nd?` Próxima: ${esc(nd.name)}${routine.weeks.length>1?' · '+esc(routine.weeks[S.w].name):''}.`:' Has terminado todos los días de tu rutina.';
+  return `<section class="sdone bk0"><div class="hband" aria-hidden="true"><i></i><i></i></div><div class="hbd"><h2>Hecho${n?', '+esc(n):''}.</h2><p><b class="hn">${mes}</b> ${mes===1?'sesión':'sesiones'} este mes.${prox}</p>${S.hecho.ef?'<p class="ft">Esfuerzo apuntado. Lo reviso y te digo algo.</p>':''}<p class="hbox">¿Algo que deba saber? Una molestia, una duda…</p><button class="btn big hk" data-act="hechochat">Escribir a ${esc(TRAINER.split(' ')[0])}</button><button class="btn big ht" data-act="hechook">Volver a mi rutina</button></div></section>`;
+}
 function clientView(){
   const tabs=`<div class="seg"><button data-tab="rutina" aria-pressed="${S.tab==='rutina'}">Rutina</button><button data-tab="historial" aria-pressed="${S.tab==='historial'}">Historial</button><button data-tab="chat" aria-pressed="${S.tab==='chat'}">Chat${unreadIn(me.id).length?` <span class="dot2">${unreadIn(me.id).length}</span>`:''}</button></div>`;
   let body;
   if(S.tab==='chat')body=`<main class="panel">${chatHTML(me.id)}</main>`;
   else if(!routine)body=`<div class="empty" style="margin-top:20px">Tu entrenador aún no te ha asignado una rutina. Vuelve en un rato.</div>`;
   else if(S.tab==='historial')body=`<main class="panel">${sessions.length?sessions.map(sessionHTML).join(''):'<div class="empty">Todavía no has guardado ninguna sesión.</div>'}</main>`;
+  else if(S.hecho)body=hechoHTML();
   else body=clientRoutine();
   return (S.welcome?welcomeHTML():'')+topbar()+head(`<h1>${me.name?'Hola, '+esc(String(me.name).split(' ')[0]):'Tu rutina'}</h1>`,routine&&routine.title!=='Mi rutina'?esc(routine.title):'')+tabs+body;
 }
@@ -964,6 +973,8 @@ async function act(a,t){
   if(a==='fin'){finish={effort:0,notes:''};S.err='';render();return}
   if(a==='vid'){const id=t.dataset.id;S.vid.has(id)?S.vid.delete(id):S.vid.add(id);render();return}
   if(a==='cancelfin'){finish=null;render();return}
+  if(a==='hechook'){S.hecho=null;render();return}
+  if(a==='hechochat'){S.hecho=null;S.tab='chat';render();if(me)markRead(me.id);return}
   if(a==='effort'||a==='savesession'){
     if(S.busy||isDone(S.w,S.d))return;if(a==='effort')finish.effort=+t.dataset.n;
     S.busy=true;S.err='';render();
@@ -974,7 +985,7 @@ async function act(a,t){
     // El esfuerzo va en una tabla aparte que el cliente puede escribir pero no leer
     if(finish.effort){const {error:ee}=await sb.from('session_effort').insert({session_id:ns.id,client_id:me.id,effort:finish.effort});if(ee)console.warn('esfuerzo no guardado',ee)}
     S.busy=false;
-    delete draft[dkey()];saveDraft();finish=null;S.tab='historial';S.auto=true;await loadClient();render();return;
+    S.hecho={ef:finish.effort};delete draft[dkey()];saveDraft();finish=null;S.tab='rutina';S.auto=true;await loadClient();render();scrollTo(0,0);return;
   }
   /* entrenador */
   if(a==='preview'){
@@ -1228,7 +1239,7 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('button');if(!t)return;
   if(t.dataset.go){const el=document.getElementById(t.dataset.go);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return}
   const y=scrollY;
-  if(t.dataset.tab){S.tab=t.dataset.tab;selClient=null;S.err='';render();if(S.tab==='chat'&&me)markRead(me.id);return}
+  if(t.dataset.tab){S.tab=t.dataset.tab;S.hecho=null;selClient=null;S.err='';render();if(S.tab==='chat'&&me)markRead(me.id);return}
   if(t.dataset.w!==undefined){S.w=+t.dataset.w;S.d=0;if(S.state==='client'&&routine&&!S.prevOn){const d=firstFree(S.w);if(d>=0)S.d=d}render();scrollTo(0,y);return}
   if(t.dataset.d!==undefined){S.d=+t.dataset.d;render();scrollTo(0,y);return}
   if(t.dataset.x){const a=t.dataset.x;xact(a,t).then(()=>{if(a!=='row')scrollTo(0,y)});return}
