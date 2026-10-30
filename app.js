@@ -192,7 +192,10 @@ const dget=it=>{const k=dkey();draft[k]=draft[k]||{};const n=isCardio(it)?1:(par
   if(!isCardio(it))a.forEach((s,i)=>{if(s.auto===undefined&&!s.done&&!s.kg&&!s.reps){const f=pfill(it,i);s.kg=f.kg;s.reps=f.reps;s.auto=!!(f.kg||f.reps)}});return a};
 // Primer número del plan («20 kg» → 20, «8-10» → 8)
 const num1=v=>(String(v||'').trim().match(/^\d+(?:[.,]\d+)?/)||[''])[0];
-function pfill(it,i){const l=(lastSets(it)||[])[i];return l&&(l.kg||l.reps)?{kg:l.kg||'',reps:l.reps||''}:{kg:num1(it.kg),reps:num1(it.reps)}}
+// Peso corporal se apunta como «P.C.»
+// Si no empieza por número, se coge el que vaya con «kg» («KB 6 kg» → 6; «RIR 2» se queda vacío)
+const pkg=v=>/peso\s*corporal|^\s*p\.?\s*c\.?\s*$/i.test(String(v||''))?'P.C.':num1(v)||(String(v||'').match(/(\d+(?:[.,]\d+)?)\s*kg/i)||['',''])[1];
+function pfill(it,i){const l=(lastSets(it)||[])[i];return l&&(l.kg||l.reps)?{kg:l.kg||'',reps:l.reps||''}:{kg:pkg(it.kg),reps:num1(it.reps)}}
 function lastSets(it){
   const nm=String(it.name||'').trim().toLowerCase();
   for(const s of sessions){const x=(s.items||[]).find(y=>y.id===it.id)||(s.items||[]).find(y=>String(y.name||'').trim().toLowerCase()===nm);if(x){const ss=x.sets||[];if(ss.some(q=>q.done&&(q.kg||q.reps)))return ss}}
@@ -348,7 +351,7 @@ function sessionHTML(s){
   const pct=t?Math.round(d/t*100):0;
   const dots=effHTML(s),cs=comments[s.id]||[];
   const gs=[];its.forEach(i=>{const k=i.block||'';const l=gs[gs.length-1];if(l&&l.k===k)l.items.push(i);else gs.push({k,items:[i]})});
-  const body=gs.map((g,gi)=>`<div class="sb bk${gi%4}">${g.k?`<div class="sbh"><span class="sbn">${gi+1}</span>${esc(bname(g.k))}</div>`:''}${g.items.map(i=>`<div class="sx"><strong>${esc(i.name)}</strong><div class="sets">${(i.sets||[]).map((x,n)=>`<span class="st${x.done?' ok':''}"><em>${n+1}</em>${x.kg||x.reps?(x.kg?esc(x.kg)+' kg':'–')+' × '+(x.reps?esc(x.reps):'–'):'Sin datos'}</span>`).join('')}</div></div>`).join('')}</div>`).join('');
+  const body=gs.map((g,gi)=>`<div class="sb bk${gi%4}">${g.k?`<div class="sbh"><span class="sbn">${gi+1}</span>${esc(bname(g.k))}</div>`:''}${g.items.map(i=>`<div class="sx"><strong>${esc(i.name)}</strong><div class="sets">${(i.sets||[]).map((x,n)=>`<span class="st${x.done?' ok':''}"><em>${n+1}</em>${x.kg||x.reps?(x.kg?esc(n$(x.kg)):'–')+' × '+(x.reps?esc(x.reps):'–'):'Sin datos'}</span>`).join('')}</div></div>`).join('')}</div>`).join('');
   return `<details class="ses" data-sid="${esc(s.id)}"${S.open&&S.open.has(s.id)?' open':''}><summary><div class="dt"><b>${day}</b><small>${esc(mon)}</small></div><div class="si"><strong>${esc(s.dname||'Sesión')}</strong><small>${esc(wk)}${s.wname?' · '+esc(s.wname):''}</small><div class="pb"><i style="width:${pct}%"></i></div><div class="sm"><span class="tag ${d===t&&t?'ok':''}">${d}/${t} series</span>${dots}${cs.length?`<span class="tag cmb">💬 ${cs.length}</span>`:''}</div></div><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary><div class="sbody">${body}${s.notes?`<div class="snote"><b>Nota</b>${esc(s.notes)}</div>`:''}${commentsHTML(s,cs)}</div></details>`;
 }
 // pantalla tras guardar la sesión: te llama por tu nombre, te dice qué viene y te invita a escribir
