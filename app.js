@@ -129,15 +129,16 @@ const ytClip=v=>{const u=String(v||'').trim(),m=u.match(/(?:youtube\.com\/(?:wat
   const q=k=>{const r=u.match(new RegExp('[?&]'+k+'=(\\d+)'));return r?+r[1]:null};return {id:m[1],start:q('start'),end:q('end')}};
 const inApp=v=>isFile(v)||!!ytClip(v);
 const clipHTML=it=>{const y=ytClip(it.video);
-  // YouTube en silencio (el cliente puede activar el sonido) y solo el tramo elegido
-  if(y)return `<iframe class="clip yt${/shorts\//.test(it.video)?' sh':''}" src="https://www.youtube.com/embed/${y.id}?mute=1&playsinline=1&rel=0&modestbranding=1${y.start!=null?'&start='+y.start:''}${y.end!=null?'&end='+y.end:''}" title="Vídeo de ${esc(it.name)}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe>`;
+  // YouTube en silencio (el cliente puede activar el sonido), solo el tramo elegido y en bucle para que no salgan vídeos sugeridos al acabar
+  if(y)return `<iframe class="clip yt${/shorts\//.test(it.video)?' sh':''}" src="https://www.youtube.com/embed/${y.id}?mute=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&loop=1&playlist=${y.id}${y.start!=null?'&start='+y.start:''}${y.end!=null?'&end='+y.end:''}" title="Vídeo de ${esc(it.name)}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe>`;
   return `<video class="clip" src="${esc(it.video)}" muted loop playsinline controls preload="none" aria-label="Vídeo de ${esc(it.name)}"></video>`};
 const tipsHTML=it=>{const ts=String(it.tips||'').split(';').map(x=>x.trim()).filter(Boolean);return ts.length?`<ol class="tips">${ts.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`:''};
 // Nota del fisio (lo que ve el cliente): solo la primera clave, corta, en la caja con el punto amarillo de articulación.
 // El resto de claves, si las hay, quedan plegadas: no todos quieren todos los detalles.
 const notaHTML=it=>{const ts=String(it.tips||'').split(';').map(x=>x.trim()).filter(Boolean);if(!ts.length)return '';
   return `<div class="nota"><span class="nbar" aria-hidden="true"><i></i></span><div class="nc"><p>${esc(ts[0])}</p>${ts.length>1?`<details class="nmas"><summary>Más claves (${ts.length-1})</summary><ul>${ts.slice(1).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`:''}</div></div>`};
-const vidHTML=it=>(inApp(it.video)?clipHTML(it):it.video?`<a class="vid" href="${esc(it.video)}" target="_blank" rel="noopener">${PLAY}Ver vídeo</a>`:'<span class="novid">Sin vídeo</span>')+notaHTML(it);
+// Durante el entreno el cliente no sale de la app: los enlaces de vídeo externos solo los ve el entrenador
+const vidHTML=it=>(inApp(it.video)?clipHTML(it):it.video&&isCoach()?`<a class="vid" href="${esc(it.video)}" target="_blank" rel="noopener">${PLAY}Ver vídeo</a>`:'<span class="novid">Sin vídeo</span>')+notaHTML(it);
 // Día ya hecho: el cliente guardó una sesión de esa semana y ese día
 const isDone=(w,d)=>!isCoach()&&sessions.some(s=>+s.week===w&&+s.day===d);
 // Primer día sin hacer de una semana (o -1 si están todos hechos)
@@ -186,6 +187,8 @@ const noconfigView=()=>head('<h1>Falta configurar</h1>','')+`<div class="hero"><
 
 /* ---------- cliente ---------- */
 const dkey=()=>S.w+'|'+S.d;
+// Sesión en marcha: alguna serie marcada como hecha en el día abierto (sirve para no distraer al cliente)
+const entrenando=()=>Object.values(draft[dkey()]||{}).some(a=>Array.isArray(a)&&a.some(x=>x&&x.done));
 S.ro={};
 const CHEV='<svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 const isCardio=it=>it.cat==='Cardio';
@@ -209,8 +212,11 @@ function lastSets(it){
   return null;
 }
 function lastFor(it){const ss=lastSets(it);return ss?ss.filter(x=>x.done&&(x.kg||x.reps)).map(x=>(x.kg||'–')+'×'+(x.reps||'–')).join(' · '):''}
-const restSecs=r=>{r=String(r||'').toLowerCase().trim();if(!r||/continu/.test(r))return 0;let m;
-  if(m=r.match(/(\d+)\s*(?:'|min|m\b)\s*(\d+)?/))return(+m[1])*60+(+m[2]||0);
+// Descanso en segundos: «2 min», «1 minuto y medio», «1,5 min», «1'30''», «90''», «90 s»… Un número solo: <10 minutos, si no segundos.
+const restSecs=r=>{r=String(r||'').toLowerCase().trim();if(!r||/continu/.test(r))return 0;let m;const half=/y\s*medi/.test(r)?30:0;
+  if(m=r.match(/(\d+(?:[.,]\d+)?)\s*(?:'(?!')|min\w*|m\b)\s*(?:(\d+)\s*(?:''|"|s\b|seg\w*)?)?/))return Math.round(parseFloat(m[1].replace(',','.'))*60)+(+m[2]||0)+half;
+  if(m=r.match(/(\d+)\s*(?:''|"|”|s\b|seg)/))return +m[1];
+  if(/medio\s*min/.test(r))return 30;
   if(m=r.match(/(\d+)/)){const n=+m[1];return n<10?n*60:n}return 0};
 let restTimer=null,restIv=null;
 const fmtT=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
@@ -370,7 +376,7 @@ function hechoHTML(){
   return `<section class="sdone bk0"><div class="hband" aria-hidden="true"><i></i><i></i></div><div class="hbd"><h2>Hecho${n?', '+esc(n):''}.</h2><p><b class="hn">${mes}</b> ${mes===1?'sesión':'sesiones'} este mes.${prox}</p>${S.hecho.ef?'<p class="ft">Esfuerzo apuntado. Lo reviso y te digo algo.</p>':''}<p class="hbox">¿Algo que deba saber? Una molestia, una duda…</p><button class="btn big hk" data-act="hechochat">Escribir a ${esc(TRAINER.split(' ')[0])}</button><button class="btn big ht" data-act="hechook">Volver a mi rutina</button></div></section>`;
 }
 function clientView(){
-  const tabs=`<div class="seg"><button data-tab="rutina" aria-pressed="${S.tab==='rutina'}">Rutina</button><button data-tab="historial" aria-pressed="${S.tab==='historial'}">Historial</button><button data-tab="chat" aria-pressed="${S.tab==='chat'}">Chat${unreadIn(me.id).length?` <span class="dot2">${unreadIn(me.id).length}</span>`:''}</button></div>`;
+  const tabs=`<div class="seg"><button data-tab="rutina" aria-pressed="${S.tab==='rutina'}">Rutina</button><button data-tab="historial" aria-pressed="${S.tab==='historial'}">Historial</button><button data-tab="chat" aria-pressed="${S.tab==='chat'}">Chat${unreadIn(me.id).length?(entrenando()?' <span class="dot2 calm" aria-label="Mensajes nuevos"></span>':` <span class="dot2">${unreadIn(me.id).length}</span>`):''}</button></div>`;
   let body;
   if(S.tab==='chat')body=`<main class="panel">${chatHTML(me.id)}</main>`;
   else if(!routine)body=`<div class="empty" style="margin-top:20px">Tu entrenador aún no te ha asignado una rutina. Vuelve en un rato.</div>`;

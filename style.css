@@ -285,6 +285,8 @@ details.ses summary::-webkit-details-marker{display:none}
 .mk.k-molestia{background:#F9E1DE;color:#A32D20}.mk.k-duro{background:#F7EBD6;color:#7A4700}.mk.k-bien{background:var(--done-soft);color:var(--done)}
 .kq{display:flex;gap:6px;flex-wrap:wrap}.kc{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:700 13.5px var(--body);border-radius:999px;padding:7px 12px;cursor:pointer}.kc.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .dot2{display:inline-grid;place-items:center;min-width:19px;height:19px;border-radius:99px;background:#C0392B;color:#fff;font:800 11px var(--body);padding:0 5px;margin-left:4px}
+/* aviso tranquilo de mensajes mientras el cliente entrena: punto gris sin número */
+.dot2.calm{min-width:8px;width:8px;height:8px;padding:0;background:var(--muted);vertical-align:middle}
 .cmx{flex:none;width:40px;height:40px;border-radius:50%;border:1.5px solid var(--line);background:var(--surface);cursor:pointer;font-size:17px}
 .mo{position:fixed;inset:0;z-index:30;background:#000a;display:grid;align-items:end}
 .mc{background:var(--surface);color:var(--ink);border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));display:grid;gap:12px;max-width:560px;width:100%;margin:0 auto}
