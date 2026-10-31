@@ -48,6 +48,8 @@ header{padding-top:14px}
 .opts button{display:flex;justify-content:space-between;align-items:center}
 .opts button[aria-pressed="true"]{background:var(--chip)}
 .opts button span{color:var(--accent-ink);background:var(--accent);border-radius:50%;width:22px;height:22px;display:grid;place-items:center;font-size:13px}
+/* aviso de descanso: textos cortos dentro del panel Opciones */
+.opts .pmsg{margin:0;padding:4px 10px 8px;font-size:13.5px;max-width:240px}
 
 /* semanas y días */
 nav{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:12px 0 10px;z-index:5;display:grid;gap:8px;margin-top:8px}

@@ -45,6 +45,7 @@ async function enter(){
   if(error||!data){S.state='login';S.err='No se pudo cargar tu perfil. Avisa a tu entrenador.';render();return}
   me=data;draft=loadJ('rutina-draft-'+me.id,{});S.err='';S.prevOn=false;S.prev=null;selClient=null;edit=null;finish=null;S.w=0;S.d=0;S.auto=true;S.tab=isCoach()?'clientes':'rutina';
   S.welcome=!isCoach()&&!(()=>{try{return localStorage.getItem('welcome-'+me.id)}catch(e){return 1}})();
+  pushSync();
   if(isCoach()){S.state='coach';render();await loadCoach()}else{S.state='client';render();await loadClient()}
 }
 async function loadMsgs(){const {data,error}=await sb.from('messages').select('*').order('created_at',{ascending:true}).limit(400);if(error)return;
@@ -113,7 +114,38 @@ const initial=c=>String((c&&(c.name||c.email))||'?').trim()[0].toUpperCase();
 const topbar=()=>me?`<div class="appbar"><div class="brand">${MARK}<span class="bt2">Mi rutina<small>Entrenador: ${TRAINER}</small></span></div><div class="menuw"><button class="gear" data-act="opts" aria-label="Opciones" aria-expanded="${!!S.opts}" aria-haspopup="dialog">${GEAR}</button><button class="av" data-act="menu" aria-label="Cuenta" aria-expanded="${!!S.menu}" aria-haspopup="menu"${me.avatar_url?` style="background-image:url('${esc(me.avatar_url)}')"`:''}>${me.avatar_url?'':esc(initial(me))}</button><input type="file" id="avf" accept="image/*" hidden>${S.menu?`<div class="pop" role="menu"><small>${esc(me.email)}</small><button role="menuitem" data-act="photo">${me.avatar_url?'Cambiar foto':'Añadir foto de perfil'}</button>${me.avatar_url?'<button role="menuitem" data-act="rmphoto">Quitar foto</button>':''}<button role="menuitem" data-act="chpw">Cambiar contraseña</button><button role="menuitem" data-act="logout">Salir</button></div>`:''}${S.opts?optsHTML():''}</div></div>`:'';
 // Panel «Opciones» del engranaje (de momento, solo la apariencia)
 const GEAR='<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 4.3c.4-1.8 3-1.8 3.4 0a1.7 1.7 0 0 0 2.6 1.1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 0 0 1 2.5c1.8.5 1.8 3 0 3.5a1.7 1.7 0 0 0-1 2.5c.9 1.6-.9 3.3-2.4 2.4a1.7 1.7 0 0 0-2.6 1.1c-.4 1.8-3 1.8-3.4 0a1.7 1.7 0 0 0-2.6-1.1c-1.5.9-3.3-.8-2.4-2.4a1.7 1.7 0 0 0-1-2.5c-1.8-.5-1.8-3 0-3.5a1.7 1.7 0 0 0 1-2.5c-.9-1.6.9-3.3 2.4-2.4a1.7 1.7 0 0 0 2.6-1.1z"/><circle cx="12" cy="12" r="3"/></svg>';
-const optsHTML=()=>{const t=curTheme();return `<div class="pop opts" role="dialog" aria-label="Opciones"><b class="opth">Opciones</b><small>Apariencia</small>${[['light','Claro'],['dark','Oscuro'],['auto','Como el móvil']].map(([v,l])=>`<button data-act="theme" data-t="${v}" aria-pressed="${t===v}">${l}${t===v?'<span aria-hidden="true">✓</span>':''}</button>`).join('')}</div>`};
+const optsHTML=()=>{const t=curTheme();return `<div class="pop opts" role="dialog" aria-label="Opciones"><b class="opth">Opciones</b><small>Apariencia</small>${[['light','Claro'],['dark','Oscuro'],['auto','Como el móvil']].map(([v,l])=>`<button data-act="theme" data-t="${v}" aria-pressed="${t===v}">${l}${t===v?'<span aria-hidden="true">✓</span>':''}</button>`).join('')}<small>Aviso de descanso</small>${pushHTML()}</div>`};
+
+/* ---------- aviso de descanso (notificación push) ---------- */
+// Al empezar un descanso guardamos una «alarma» en Supabase (rest_alarms); el servidor manda la notificación cuando vence, aunque el móvil esté bloqueado
+const pushOK=()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+const isIOS=()=>/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const isApp=()=>navigator.standalone===true||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
+const pushKey=()=>'avisos-'+(me&&me.id);
+// Activos = permiso concedido y marca guardada en este dispositivo
+const pushOn=()=>{try{return pushOK()&&Notification.permission==='granted'&&localStorage.getItem(pushKey())==='1'}catch(e){return false}};
+function pushHTML(){
+  const msg=S.pushMsg?`<div class="err pmsg" role="alert">${esc(S.pushMsg)}</div>`:'';
+  if(!pushOK())return `<p class="ft pmsg">${isIOS()&&!isApp()?'En iPhone: pulsa Compartir → “Añadir a pantalla de inicio” y abre Mi Rutina desde ese icono.':'Este navegador no permite avisos.'}</p>`;
+  if(Notification.permission==='denied')return `<p class="ft pmsg">Avisos bloqueados en los ajustes del móvil.</p>`;
+  if(S.pushBusy)return `<p class="ft pmsg" role="status">Un momento…</p>`;
+  if(pushOn())return `<button data-act="pushon" aria-pressed="true">Activado<span aria-hidden="true">✓</span></button><button data-act="pushoff">Desactivar</button>`+msg;
+  return `<button data-act="pushon" aria-pressed="false">Activar</button>`+msg;
+}
+// La clave pública VAPID viene en base64url; el navegador la quiere como bytes
+const b64u=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');s+='='.repeat((4-s.length%4)%4);return Uint8Array.from(atob(s),c=>c.charCodeAt(0))};
+// Guarda (o actualiza) la suscripción de este dispositivo en push_subs
+function pushSave(sub){const j=sub.toJSON();return sb.from('push_subs').upsert({endpoint:j.endpoint,p256dh:j.keys.p256dh,auth:j.keys.auth})}
+// Al entrar: si ya había permiso y suscripción, la volvemos a guardar en silencio por si cambió
+function pushSync(){try{if(!pushOK()||Notification.permission!=='granted')return;
+  navigator.serviceWorker.getRegistration().then(r=>r&&r.pushManager.getSubscription()).then(sub=>{
+    if(sub){try{localStorage.setItem(pushKey(),'1')}catch(e){}return pushSave(sub)}
+    try{localStorage.removeItem(pushKey())}catch(e){}}).catch(()=>{})}catch(e){}}
+// Alarma del descanso en el servidor (sin esperar: si falla, el descanso sigue igual)
+function alarmSet(){if(!pushOn()||!me||!restTimer)return;const nx=nextSet();
+  const body=nx?`Toca: ${nx.it.name} · serie ${nx.i+1}/${nx.n}`:'Vuelve a la siguiente serie';
+  try{sb.from('rest_alarms').upsert({user_id:me.id,fire_at:new Date(restTimer.end).toISOString(),title:'Descanso terminado',body}).then(()=>{},()=>{})}catch(e){}}
+function alarmDel(){if(!me||!sb)return;try{sb.from('rest_alarms').delete().eq('user_id',me.id).then(()=>{},()=>{})}catch(e){}}
 function facts(it){
   const f=[];
   if(it.cat==='Cardio'){if(it.series)f.push(['Duración',it.series+' min','big']);if(it.reps)f.push(['Intensidad',it.reps]);}
@@ -222,11 +254,13 @@ let restTimer=null,restIv=null;
 const fmtT=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
 function beep(){try{navigator.vibrate&&navigator.vibrate([250,120,250]);const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.15;o.start();o.stop(c.currentTime+.35)}catch(e){}}
 function startRest(sec){
-  if(!sec)return;clearInterval(restIv);restTimer={end:Date.now()+sec*1000,dur:sec*1000};render();
+  if(!sec)return;clearInterval(restIv);restTimer={end:Date.now()+sec*1000,dur:sec*1000};render();alarmSet();
   restIv=setInterval(()=>{if(!restTimer){clearInterval(restIv);return}const left=Math.ceil((restTimer.end-Date.now())/1000),el=document.getElementById('restt'),bar=document.getElementById('restp');
     if(left<=0){stopRest(true);return}if(el)el.textContent=fmtT(left);if(bar)bar.style.width=restPct()+'%'},250);
 }
-function stopRest(ring){clearInterval(restIv);restTimer=null;if(ring)beep();render()}
+function stopRest(ring){clearInterval(restIv);restTimer=null;if(ring)beep();
+  // Si el descanso se corta antes, o acaba con la app a la vista (ya suena el pitido), quitamos la alarma del servidor para que no llegue el aviso
+  if(!ring||!document.hidden)alarmDel();render()}
 // Lo que queda de descanso, en %, para la línea amarilla que se acorta
 const restPct=()=>restTimer?Math.max(0,Math.min(100,(restTimer.end-Date.now())/restTimer.dur*100)):0;
 // Siguiente serie por hacer del día (en superserie, por rondas), para enseñarla durante el descanso
@@ -1016,7 +1050,7 @@ function render(){
 const werr=e=>e&&e.message?('No se pudo guardar: '+e.message):'No se pudo guardar. Prueba de nuevo.';
 function saveDraft(){saveJ('rutina-draft-'+me.id,draft)}
 async function act(a,t){
-  if(a==='logout'){S.menu=false;S.prevOn=false;S.prev=null;clearInterval(restIv);restTimer=null;await sb.auth.signOut();me=null;routine=null;sessions=[];selClient=null;edit=null;finish=null;S.state='login';S.err='';render();return}
+  if(a==='logout'){S.menu=false;S.prevOn=false;S.prev=null;clearInterval(restIv);if(restTimer)alarmDel();restTimer=null;await sb.auth.signOut();me=null;routine=null;sessions=[];selClient=null;edit=null;finish=null;S.state='login';S.err='';render();return}
   if(a==='cmsend'){const sid=t.dataset.sid,inp=document.getElementById('cm-'+sid),body=(inp?inp.value:'').trim();if(!body)return;
     inp.disabled=true;const {error}=await sb.from('session_comments').insert({session_id:sid,author_id:me.id,body});
     if(error){inp.disabled=false;alert('No se pudo enviar: '+error.message);return}
@@ -1043,6 +1077,22 @@ async function act(a,t){
   if(a==='menu'){S.menu=!S.menu;S.opts=false;render();return}
   if(a==='opts'){S.opts=!S.opts;S.menu=false;render();return}
   if(a==='theme'){setTheme(t.dataset.t,true);render();return}
+  // Aviso de descanso: el permiso se pide nada más pulsar (iOS lo exige así)
+  if(a==='pushon'){if(pushOn()||S.pushBusy)return;S.pushMsg='';
+    let p;try{p=await Notification.requestPermission()}catch(e){p=Notification.permission}
+    if(p!=='granted'){S.pushMsg=p==='denied'?'':'No has dado permiso para los avisos.';render();return}
+    S.pushBusy=true;render();
+    try{const reg=await navigator.serviceWorker.ready;
+      const {data:key,error:ke}=await sb.rpc('vapid_public');if(ke||!key)throw new Error('No se pudo obtener la clave de avisos.');
+      const sub=(await reg.pushManager.getSubscription())||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(String(key))});
+      const {error}=await pushSave(sub);if(error)throw new Error('No se pudo guardar el aviso: '+error.message);
+      try{localStorage.setItem(pushKey(),'1')}catch(e){}
+    }catch(e){S.pushMsg=(e&&e.message)||'No se pudieron activar los avisos.'}
+    S.pushBusy=false;render();return}
+  if(a==='pushoff'){S.pushMsg='';try{localStorage.removeItem(pushKey())}catch(e){}alarmDel();
+    try{const reg=await navigator.serviceWorker.getRegistration(),sub=reg&&await reg.pushManager.getSubscription();
+      if(sub){const ep=sub.endpoint;await sub.unsubscribe();await sb.from('push_subs').delete().eq('endpoint',ep)}}catch(e){}
+    render();return}
   if(a==='chpw'){S.menu=false;S.chpw=true;S.err='';S.state='setpw';render();return}
   if(a==='cancelpw'){S.chpw=false;S.err='';await enter();return}
   if(a==='forgot'){S.forgot=true;S.err='';S.info='';render();return}
