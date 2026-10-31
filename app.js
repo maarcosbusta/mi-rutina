@@ -1080,9 +1080,12 @@ async function act(a,t){
   // Aviso de descanso: el permiso se pide nada más pulsar (iOS lo exige así)
   if(a==='pushon'){if(pushOn()||S.pushBusy)return;S.pushMsg='';
     let p;try{p=await Notification.requestPermission()}catch(e){p=Notification.permission}
-    if(p!=='granted'){S.pushMsg=p==='denied'?'':'No has dado permiso para los avisos.';render();return}
+    // Si iOS dice «no» sin haber enseñado la pregunta (icono añadido antes de que existiera el aviso), explicamos cómo arreglarlo
+    if(p!=='granted'){S.pushMsg=p!=='denied'?'No has dado permiso para los avisos.':Notification.permission==='denied'?'':'El móvil no ha mostrado la pregunta. Borra el icono de Mi Rutina, vuelve a añadirlo desde Safari y ábrelo desde el icono nuevo.';render();return}
     S.pushBusy=true;render();
-    try{const reg=await navigator.serviceWorker.ready;
+    // Service worker: si no estaba, se registra; y como mucho esperamos 10 s para no quedarnos en «Un momento…»
+    try{if(!await navigator.serviceWorker.getRegistration())await navigator.serviceWorker.register('sw.js');
+      const reg=await Promise.race([navigator.serviceWorker.ready,new Promise((_,no)=>setTimeout(()=>no(new Error('El móvil no ha preparado los avisos. Cierra Mi Rutina del todo, ábrela otra vez y pulsa Activar.')),10000))]);
       const {data:key,error:ke}=await sb.rpc('vapid_public');if(ke||!key)throw new Error('No se pudo obtener la clave de avisos.');
       const sub=(await reg.pushManager.getSubscription())||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(String(key))});
       const {error}=await pushSave(sub);if(error)throw new Error('No se pudo guardar el aviso: '+error.message);

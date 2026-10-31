@@ -12,7 +12,7 @@ Página estática sin build: GitHub Pages sirve los ficheros tal cual. Backend: 
 
 | Fichero | Qué hay |
 | --- | --- |
-| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`, el manifest y registra `sw.js`. Lleva `?v=50` para saltarse la caché: súbelo en todos los `?v=` de `index.html` (iconos, `style.css`, `xlsx-lite.js` y `app.js`; `config.js` no lleva) al publicar cambios de CSS/JS. |
+| `index.html` | Solo carga fuentes, `style.css`, supabase-js 2.45.4 (CDN), `config.js`, `xlsx-lite.js` y `app.js`, el manifest y registra `sw.js`. Lleva `?v=51` para saltarse la caché: súbelo en todos los `?v=` de `index.html` (iconos, `style.css`, `xlsx-lite.js` y `app.js`; `config.js` no lleva) al publicar cambios de CSS/JS. |
 | `config.js` | URL y clave **anon** de Supabase (pública por diseño; los permisos los dan las políticas RLS). Nunca pongas aquí la clave `service_role`. |
 | `app.js` | Toda la app (~1300 líneas). Ver abajo. |
 | `style.css` | Estilos. Bloques: "barra superior", "semanas y días", "progreso y mapa de bloques", "bloque de superserie", "barra fija de sesión", "botones y formularios", "panel del entrenador", "editor del entrenador", "marca Marcos Bustamante", "series desplegables", "tipo de bloque", "formulario añadir cliente", "vista de escritorio del entrenador (Mac)", "pestaña Ejercicios", "programador de rutinas" (siempre en claro, clases `pg-`), "pestaña Programador rutinas" (clases `pc-`), "descanso «todo en negro»" (`.rest`) y "nota del fisio" (`.nota`) y «Última vez» del programador (`.pg-ult`, `.pg-lv`). Tema oscuro en `:root[data-theme="dark"]`. |
