@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prototipo · Última vez en el programador</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* Prototipo: no toca la app real, solo enseña cómo se vería en el programador de rutinas */
+:root{--bg:#F4F6FA;--surface:#fff;--ink:#0B0B0D;--muted:#5B6170;--line:#DFE3EC;--accent:#FFD400;--blue:#1E4FD8;--blue-soft:#E8EEFC;--done:#1F9D55;--bad:#D64545;--sel:#FFFBE0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 'Barlow',system-ui,sans-serif;padding:16px}
+.wrap{max-width:440px;margin:0 auto}
+h1{font:400 30px/1 'Anton',Impact,sans-serif;text-transform:uppercase;margin:6px 0 4px}
+h1 span{background:var(--accent);padding:0 6px}
+.sub{color:var(--muted);margin:0 0 14px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.tabs button{border:2px solid var(--ink);background:var(--surface);border-radius:8px;padding:10px 6px;font:700 15px 'Barlow Condensed',sans-serif;text-transform:uppercase;cursor:pointer;color:var(--ink)}
+.tabs button[aria-pressed="true"]{background:var(--accent)}
+.lbl{font:700 12px 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 4px}
+/* Bloque del día, igual que en el programador */
+.blk{background:var(--surface);border-radius:12px;box-shadow:0 1px 2px #0B0B0D14,0 6px 20px #0B0B0D0F;overflow:hidden;margin-bottom:10px}
+.bh{font:700 13px 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.1em;padding:10px 12px 4px;color:var(--muted)}
+.ex{display:flex;gap:10px;padding:10px 12px;border-top:1px solid var(--line);cursor:pointer}
+.bh+.ex{border-top:0}
+.ex[aria-current="true"]{background:var(--sel);box-shadow:inset 3px 0 0 var(--accent)}
+.exb{flex:1;min-width:0;display:grid;gap:2px}
+.exb b{font:600 17px/1.2 'Barlow',sans-serif}
+.exb>span{font:500 13px 'IBM Plex Mono',monospace;color:var(--muted)}
+.exb>span em{font-style:normal;font-weight:600;color:var(--ink)}
+/* Línea nueva: lo que hizo el cliente la última vez */
+.ult{font:500 12.5px 'IBM Plex Mono',monospace;color:var(--blue);display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.ult small{font:600 11px 'Barlow',sans-serif;color:var(--muted)}
+.ult.no{color:var(--muted)}
+.tag{font:700 11px 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.04em;border-radius:4px;padding:1px 5px}
+.tag.up{background:#E3F4EA;color:var(--done)}
+.tag.dn{background:#FBE6E6;color:var(--bad)}
+.tag.eq{background:var(--blue-soft);color:var(--blue)}
+/* Ficha del ejercicio */
+.insp{background:var(--surface);border-radius:12px;box-shadow:0 1px 2px #0B0B0D14,0 6px 20px #0B0B0D0F;padding:14px;margin-top:4px}
+.insp h3{font:800 21px 'Barlow Condensed',sans-serif;margin:0 0 10px}
+.fld{display:grid;gap:6px;margin-bottom:12px}
+.fld>label{font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.fl{display:flex;gap:6px;flex-wrap:wrap}
+.fl input{flex:1;min-width:120px;border:1.5px solid var(--line);background:var(--bg);border-radius:8px;padding:9px 10px;font:600 16px 'IBM Plex Mono',monospace;color:var(--ink)}
+.q{border:1.5px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;font:600 14px 'IBM Plex Mono',monospace;cursor:pointer;color:var(--ink)}
+.box{background:var(--blue-soft);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.box h4{margin:0 0 6px;font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);display:flex;justify-content:space-between;gap:8px}
+.box h4 small{font:600 12px 'Barlow',sans-serif;letter-spacing:0;text-transform:none;color:var(--muted)}
+.sets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.st{background:var(--surface);border-radius:6px;padding:5px 8px;font:500 14px 'IBM Plex Mono',monospace}
+.st em{font-style:normal;color:var(--muted);margin-right:4px}
+.esf{font-size:13px;color:var(--muted);margin:0 0 8px}
+.use{border:0;border-radius:8px;padding:10px 12px;background:var(--ink);color:#fff;font:700 15px 'Barlow Condensed',sans-serif;text-transform:uppercase;cursor:pointer;margin:0 6px 6px 0}
+.use.sec{background:var(--surface);color:var(--ink);border:2px solid var(--ink)}
+.prev{font-size:13px;color:var(--muted);margin:6px 0 0}
+.prev b{font:600 13px 'IBM Plex Mono',monospace;color:var(--ink)}
+.hint{color:var(--muted);font-size:14px;margin:0}
+.note{background:var(--surface);border-radius:12px;padding:12px 14px;margin-top:16px;font-size:15px;border:2px dashed var(--line)}
+.note ul{margin:6px 0 0;padding-left:18px}
+.flash{animation:fl .8s ease-out}
+@keyframes fl{from{background:var(--accent)}to{background:var(--bg)}}
+@media (prefers-reduced-motion:reduce){.flash{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Última <span>vez</span></h1>
+  <p class="sub">Prototipo para el programador de rutinas. Toca un ejercicio para ver su ficha.</p>
+
+  <div class="lbl">Versión</div>
+  <div class="tabs" id="ver">
+    <button data-v="antes" aria-pressed="false">Como está hoy</button>
+    <button data-v="nuevo" aria-pressed="true">Propuesta</button>
+  </div>
+
+  <div class="lbl">Rutina de Pablo · Semana 3 · Día 1</div>
+  <div id="dia"></div>
+
+  <div class="lbl">Ficha del ejercicio</div>
+  <div class="insp" id="insp"></div>
+
+  <div class="note">
+    <b>Cómo funcionaría</b>
+    <ul>
+      <li>Debajo de cada ejercicio sale en azul <b>lo que hizo el cliente la última vez</b> (kg × reps de cada serie) y hace cuánto.</li>
+      <li>Una etiqueta te dice si <b>hizo más, lo mismo o menos</b> de lo que le mandaste.</li>
+      <li>En la ficha ves las series y el esfuerzo que puntuó (1-10). Con <b>«Poner X kg»</b> copias su mejor peso o le sumas 2,5 kg de un toque.</li>
+      <li>Si nunca lo ha hecho, pone «Aún no lo ha hecho».</li>
+      <li>Sale de las sesiones que ya guarda la app: <b>no hay que cambiar nada en Supabase</b>.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Datos de ejemplo: el día que estás programando y la última sesión del cliente
+const DIA=[
+  {bloque:'Movilidad',items:[
+    {id:1,name:'Movilidad de tobillo en pared',series:'2',reps:'10',kg:'',rest:'30 s',last:{hace:'hace 3 días',esf:4,sets:[{kg:'',reps:'10'},{kg:'',reps:'10'}]}}]},
+  {bloque:'Fuerza 1',items:[
+    {id:2,name:'Sentadilla goblet',series:'3',reps:'10',kg:'20 kg',rest:'90 s',last:{hace:'hace 3 días',esf:7,sets:[{kg:'22,5',reps:'10'},{kg:'22,5',reps:'10'},{kg:'24',reps:'8'}]}},
+    {id:3,name:'Press banca con mancuernas',series:'3',reps:'8',kg:'16 kg',rest:'2 min',last:{hace:'hace 3 días',esf:9,sets:[{kg:'16',reps:'8'},{kg:'16',reps:'6'},{kg:'14',reps:'6'}]}}]},
+  {bloque:'Fuerza 2',items:[
+    {id:4,name:'Hip thrust',series:'4',reps:'12',kg:'40 kg',rest:'90 s',last:{hace:'hace 10 días',esf:6,sets:[{kg:'40',reps:'12'},{kg:'40',reps:'12'},{kg:'40',reps:'12'},{kg:'40',reps:'12'}]}},
+    {id:5,name:'Peso muerto rumano',series:'3',reps:'10',kg:'30 kg',rest:'90 s',last:null}]}
+];
+let ver='nuevo',sel=2;
+const items=()=>DIA.flatMap(b=>b.items);
+const num=v=>parseFloat(String(v||'').replace(',','.'))||0;
+const fmt=n=>String(Math.round(n*10)/10).replace('.',',');
+// Kg más alto que movió en la última sesión
+const mejor=l=>Math.max(0,...l.sets.map(s=>num(s.kg)));
+// Compara lo hecho con lo mandado: carga primero, luego repeticiones
+function compara(x){
+  const l=x.last;if(!l)return null;
+  const kg=mejor(l),plan=num(x.kg),reps=l.sets.map(s=>num(s.reps)),pr=num(x.reps);
+  if(plan&&kg>plan)return {c:'up',t:'Más carga'};
+  if(plan&&kg<plan)return {c:'dn',t:'Menos carga'};
+  if(pr&&reps.some(r=>r<pr))return {c:'dn',t:'No llegó a las reps'};
+  return {c:'eq',t:'Lo mandado'};
+}
+// Sin carga solo se enseñan las reps
+const setsTxt=l=>l.sets.map(s=>s.kg?s.kg+'×'+(s.reps||'–'):(s.reps||'–')+' reps').join(' · ');
+
+function pintaDia(){
+  document.getElementById('dia').innerHTML=DIA.map(b=>`<section class="blk"><div class="bh">${b.bloque}</div>`+b.items.map(x=>{
+    let ult='';
+    if(ver==='nuevo'){
+      const c=compara(x);
+      ult=x.last?`<span class="ult">↺ ${setsTxt(x.last)} <small>${x.last.hace}</small>${c?`<span class="tag ${c.c}">${c.t}</span>`:''}</span>`
+        :'<span class="ult no">Aún no lo ha hecho</span>';
+    }
+    return `<div class="ex" data-id="${x.id}" aria-current="${x.id===sel}"><div class="exb"><b>${x.name}</b><span><em>${x.series} × ${x.reps}</em>${x.kg?' · '+x.kg:''} · ${x.rest}</span>${ult}</div></div>`}).join('')+'</section>').join('');
+}
+function pintaFicha(){
+  const x=items().find(i=>i.id===sel),l=x.last;
+  let caja='';
+  if(ver==='nuevo'){
+    if(l){
+      const m=mejor(l);
+      caja=`<div class="box"><h4>Última vez <small>${l.hace} · esfuerzo ${l.esf}/10</small></h4>
+        <div class="sets">${l.sets.map((s,i)=>`<span class="st"><em>${i+1}</em>${s.kg?s.kg+' kg × ':''}${s.reps} reps</span>`).join('')}</div>
+        ${m?`<button class="use" data-kg="${fmt(m)} kg">Poner ${fmt(m)} kg</button><button class="use sec" data-kg="${fmt(m+2.5)} kg">Poner ${fmt(m+2.5)} kg (+2,5)</button>`:'<p class="hint">Sin carga: lo hizo con peso corporal.</p>'}
+      </div>`;
+    }else caja='<div class="box"><h4>Última vez</h4><p class="hint">Aún no lo ha hecho. Pon la carga a ojo o valórala en persona.</p></div>';
+  }
+  document.getElementById('insp').innerHTML=`<h3>${x.name}</h3>${caja}
+    <div class="fld"><label>Series × reps</label><div class="fl"><input value="${x.series}" readonly style="max-width:80px"><input value="${x.reps}" readonly style="max-width:80px"></div></div>
+    <div class="fld"><label for="kg">Carga</label><div class="fl"><input id="kg" value="${x.kg}" placeholder="20 kg, RIR 2, banda roja…"><button class="q" data-d="-2.5">−2,5</button><button class="q" data-d="2.5">+2,5</button></div>
+    ${ver==='nuevo'&&l?`<p class="prev">Mandaste <b>${x.kg||'sin carga'}</b> · hizo <b>${setsTxt(l)}</b></p>`:''}</div>`;
+}
+function pinta(){pintaDia();pintaFicha()}
+function ponKg(v){
+  const x=items().find(i=>i.id===sel);x.kg=v;pinta();
+  const i=document.getElementById('kg');i.classList.add('flash');
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button,.ex');if(!b)return;
+  if(b.dataset.v){ver=b.dataset.v;document.querySelectorAll('#ver button').forEach(z=>z.setAttribute('aria-pressed',z===b));pinta();return}
+  if(b.classList.contains('ex')){sel=+b.dataset.id;pinta();if(innerWidth<700)document.getElementById('insp').scrollIntoView({behavior:'smooth',block:'start'});return}
+  if(b.dataset.kg){ponKg(b.dataset.kg);return}
+  if(b.dataset.d){const x=items().find(i=>i.id===sel),n=num(x.kg)+(+b.dataset.d);if(n>0)ponKg(fmt(n)+' kg')}
+});
+document.addEventListener('input',e=>{if(e.target.id==='kg'){items().find(i=>i.id===sel).kg=e.target.value;pintaDia()}});
+pinta();
+</script>
+</body>
+</html>

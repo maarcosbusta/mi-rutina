@@ -736,6 +736,27 @@ function psumHTML(){
   return `<div class="pg-st"><div><small>Ejercicios</small><b>${d.items.length}</b></div><div><small>Bloques</small><b>${pblocks(d).length}</b></div><div><small>Duración</small><b>≈${pmin(d)}<em>min</em></b></div></div>
   <div class="pg-sg"><small>Series por grupo</small>${Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="pg-sgr"><span>${esc(k)}</span><i><b style="width:${v/max*100}%"></b></i><em>${v}</em></div>`).join('')}</div>`;
 }
+// «Última vez» en el programador: última sesión del cliente con ese ejercicio (solo al editar la rutina de un cliente)
+function plast(x){
+  if(!edit||edit.kind!=='routine')return null;
+  const nm=String(x.name||'').trim().toLowerCase();
+  for(const s of cSessions){if(s.client_id!==selClient)continue;const y=(s.items||[]).find(z=>z.id===x.id)||(s.items||[]).find(z=>String(z.name||'').trim().toLowerCase()===nm);
+    const ss=y?(y.sets||[]).filter(q=>q.done&&(q.kg||q.reps)):[];if(ss.length)return {ses:s,sets:ss}}
+  return null;
+}
+const pnum=v=>parseFloat(String(v||'').replace(',','.'))||0;
+const pbest=l=>Math.max(0,...l.sets.map(q=>pnum(q.kg)));
+const psets=l=>l.sets.map(q=>q.kg?q.kg+'×'+(q.reps||'–'):(q.reps||'–')+' reps').join(' · ');
+const pdias=iso=>{const n=Math.floor((Date.now()-new Date(iso))/864e5);return n<1?'hoy':n<2?'ayer':n<60?`hace ${n} días`:`hace ${Math.floor(n/30)} meses`};
+// Compara lo hecho con lo mandado: primero la carga, luego las repeticiones
+function pcmp(x,l){const kg=pbest(l),plan=pnum(pkg(x.kg)),pr=pnum(num1(x.reps));
+  if(plan&&kg>plan)return ['up','Más carga'];if(plan&&kg&&kg<plan)return ['dn','Menos carga'];
+  if(pr&&l.sets.some(q=>q.reps&&pnum(q.reps)<pr))return ['dn','No llegó a las reps'];return ['eq','Lo mandado']}
+function plastHTML(x){
+  if(!edit||edit.kind!=='routine'||isCardio(x))return '';
+  const l=plast(x);if(!l)return '<span class="pg-ult no">Aún no lo ha hecho</span>';
+  const c=pcmp(x,l);return `<span class="pg-ult">↺ ${esc(psets(l))} <small>${pdias(l.ses.performed_at)}</small><i class="pg-ut ${c[0]}">${c[1]}</i></span>`;
+}
 function pdayHTML(){
   const bs=pblocks(pday());
   if(!bs.length)return `<div class="pg-empty pg-gap" data-at="0"><b>Día vacío</b>${wide()?'Arrastra aquí ejercicios desde la base de la izquierda.':'Pulsa «+ Añadir ejercicios» abajo.'}</div>`;
@@ -743,7 +764,7 @@ function pdayHTML(){
   return bs.map((b,bi)=>{const ss=pss(b),f=b[0],many=b.length>1;
     return gap(bi)+`<section class="pg-blk${ss?' ss':''}" data-b="${bi}"><div class="pg-bh"><input class="pg-bnm" data-bn="${bi}" value="${esc(bname(f.block))}" placeholder="Sin nombre" aria-label="Nombre del bloque" autocomplete="off"></div>`
       +(many?`<div class="pg-bmode"><div class="pg-mode" role="group" aria-label="Tipo de bloque"><button data-p="bmode" data-b="${bi}" data-m="ss" aria-pressed="${ss}">Superserie</button><button data-p="bmode" data-b="${bi}" data-m="normal" aria-pressed="${!ss}">Series normales</button></div><small>${ss?`${esc(f.series||'?')} rondas · ${esc(f.rest||'sin descanso')}`:'Cada uno entero'}</small></div>`:'')
-      +b.map((x,p)=>`<div class="pg-ex" data-id="${x.id}" data-b="${bi}" data-p2="${p}"${x.id===S.p.sel?' aria-current="true"':''}><span class="pg-grip" aria-hidden="true">${PI.grip}</span><div class="pg-exb"><b>${esc(x.name)}</b><span><em>${esc(x.series||'?')} × ${esc(x.reps||'?')}</em>${x.kg?' · '+esc(n$(x.kg)):''}${!ss&&x.rest?' · '+esc(x.rest):''}</span></div>${x.video?`<span class="pg-vid" title="Tiene vídeo">${PI.vid}</span>`:''}</div>`).join('')
+      +b.map((x,p)=>`<div class="pg-ex" data-id="${x.id}" data-b="${bi}" data-p2="${p}"${x.id===S.p.sel?' aria-current="true"':''}><span class="pg-grip" aria-hidden="true">${PI.grip}</span><div class="pg-exb"><b>${esc(x.name)}</b><span><em>${esc(x.series||'?')} × ${esc(x.reps||'?')}</em>${x.kg?' · '+esc(n$(x.kg)):''}${!ss&&x.rest?' · '+esc(x.rest):''}</span>${plastHTML(x)}</div>${x.video?`<span class="pg-vid" title="Tiene vídeo">${PI.vid}</span>`:''}</div>`).join('')
       +`</section>`}).join('')+gap(bs.length);
 }
 // Lista de la base con los filtros de la pestaña Ejercicios (categoría, material que tengo y vídeo)
@@ -786,11 +807,20 @@ function pinspHTML(){
   <div class="pg-fld"><label for="pg-name">Ejercicio</label>${inp('name','list="lib" class="w"')}</div>
   <div class="pg-fld"><label for="pg-series">${cardio?'Duración (min)':ss?'Rondas (series del bloque)':'Series'}</label><div class="pg-fl">${inp('series','inputmode="numeric"')}${cardio?'':qs('series',['2','3','4','5'])}</div></div>
   <div class="pg-fld"><label for="pg-reps">${cardio?'Intensidad':'Repeticiones'}</label><div class="pg-fl">${inp('reps')}${cardio?'':qs('reps',['5','6','8','10','12','15'])}</div></div>
+  ${cardio?'':plastBox(x)}
   ${cardio?'':`<div class="pg-fld"><label for="pg-kg">Carga</label><div class="pg-fl">${inp('kg','class="w" placeholder="20 kg, RIR 2, banda roja…"')}<button class="pg-q" data-p="kg" data-v="-2.5">−2,5</button><button class="pg-q" data-p="kg" data-v="2.5">+2,5</button></div></div>`}
   <div class="pg-fld"><label for="pg-rest">${ss?'Descanso entre rondas':'Descanso'}</label><div class="pg-fl">${inp('rest')}${qs('rest',['45 s','60 s','90 s','2 min','3 min'])}</div></div>
   <div class="pg-fld"><label for="pg-tips">Claves técnicas</label><textarea id="pg-tips" data-pi="tips" placeholder="Clave 1; clave 2">${esc(x.tips)}</textarea></div>
   <div class="pg-fld"><label for="pg-video">Vídeo (archivo o enlace)</label>${inp('video','class="w" inputmode="url" placeholder="videos/ejercicio.mp4 o enlace de YouTube"')}</div>
   <div class="pg-iacts">${blk.length>1?'<button class="pg-btn sec" data-p="split">Sacar del bloque</button>':''}<button class="pg-btn sec" data-p="dup">Duplicar</button><button class="pg-btn warn" data-p="del">Quitar</button></div></div>`;
+}
+// Caja «Última vez» de la ficha, con botones para copiar su mejor peso
+function plastBox(x){
+  if(!edit||edit.kind!=='routine')return '';
+  const l=plast(x);if(!l)return '<div class="pg-lv"><h4>Última vez</h4><p>Aún no lo ha hecho.</p></div>';
+  const m=pbest(l),ef=efforts[l.ses.id];
+  return `<div class="pg-lv"><h4>Última vez<small>${pdias(l.ses.performed_at)}${ef?` · esfuerzo ${ef}/10`:''}</small></h4><div class="pg-lvs">${l.sets.map((q,i)=>`<span><em>${i+1}</em>${q.kg?esc(q.kg)+' kg × ':''}${esc(q.reps||'–')} reps</span>`).join('')}</div>
+  ${m?`<div class="pg-fl"><button class="pg-q" data-p="lastkg" data-v="${pfmt(m)} kg">Poner ${pfmt(m)} kg</button><button class="pg-q" data-p="lastkg" data-v="${pfmt(m+2.5)} kg">Poner ${pfmt(m+2.5)} kg (+2,5)</button></div>`:''}</div>`;
 }
 // Repinta solo el día y el resumen (para no perder el foco al escribir)
 function prepaint(){const a=document.getElementById('pg-day'),b=document.getElementById('pg-sum');if(a)a.innerHTML=pdayHTML();if(b)b.innerHTML=psumHTML()}
@@ -922,6 +952,7 @@ function pclick(e){
   else if(a==='undo'){if(P.undo){edit.model=JSON.parse(P.undo);P.undo=null;P.sel=null;const tt=document.getElementById('pg-toast');if(tt)tt.hidden=true}}
   else if(s&&a==='qv'){const f=t.dataset.f;(pss(s.blk)&&(f==='series'||f==='rest')?s.blk:[s.x]).forEach(y=>y[f]=t.dataset.v)}
   else if(s&&a==='kg'){const m=String(s.x.kg).match(/(\d+(?:[.,]\d+)?)/),base=m?parseFloat(m[1].replace(',','.')):0,v=pfmt(Math.max(0,base+ +t.dataset.v));s.x.kg=m?String(s.x.kg).replace(m[1],v):v+' kg'}
+  else if(s&&a==='lastkg')s.x.kg=t.dataset.v;
   else if(s&&a==='del'){psnap();const bs=pblocks(pday());bs[s.b].splice(s.p,1);pset(pday(),bs);P.sel=null;render();ptoast(s.x.name+' quitado',true);return true}
   else if(s&&a==='dup'){psnap();const c={...s.x,id:uid(),ss:false},bs=pblocks(pday());c.block=pnew(pday().items,s.b+1);bs.splice(s.b+1,0,[c]);pset(pday(),bs);P.sel=c.id;render();pflash(c.id);return true}
   else if(s&&a==='split'){pplace({id:s.x.id},{gap:s.b+1});P.sel=s.x.id;render();return true}
@@ -1157,7 +1188,7 @@ async function importXlsx(file){
   }catch(e){edit.imp={err:(e&&e.message)||'No se pudo leer el Excel.'}}
   render();
 }
-function startEdit(kind,data,label){edit={kind,label,model:JSON.parse(JSON.stringify({title:data.title,weeks:data.weeks}))};S.w=0;S.d=0;S.err='';S.p.sel=null;S.p.lib=false;S.p.prog=false;S.p.undo=null;render();scrollTo(0,0)}
+function startEdit(kind,data,label){edit={kind,label,model:JSON.parse(JSON.stringify({title:data.title,weeks:data.weeks}))};S.w=0;S.d=0;S.err='';S.p.sel=null;S.p.lib=false;S.p.prog=false;S.p.undo=null;render();scrollTo(0,0);if(kind==='routine'&&selClient)loadClientSessions(selClient)}
 
 /* ---------- eventos ---------- */
 document.addEventListener('submit',async e=>{

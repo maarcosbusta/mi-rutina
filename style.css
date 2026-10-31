@@ -608,6 +608,21 @@ body.pgon{background:#F4F6FA;color-scheme:light;padding-bottom:112px}
 .pg-exb b{font:600 17px/1.2 var(--text);overflow-wrap:anywhere}
 .pg-exb span{font:500 13px var(--mono);color:var(--muted)}
 .pg-exb span em{font-style:normal;font-weight:600;color:var(--ink)}
+/* «Última vez» del cliente en el programador */
+.pg-exb .pg-ult{font:500 12.5px var(--mono);color:var(--blue);display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center}
+.pg-exb .pg-ult.no{color:var(--muted)}
+.pg-ult small{font:600 11.5px var(--text);color:var(--muted)}
+.pg-ut{font:700 11px var(--label);font-style:normal;text-transform:uppercase;letter-spacing:.04em;border-radius:4px;padding:1px 5px}
+.pg-ut.up{background:#E3F4EA;color:var(--done)}
+.pg-ut.dn{background:#FBE6E6;color:var(--bad)}
+.pg-ut.eq{background:var(--blue-soft);color:var(--blue)}
+.pg-lv{background:var(--blue-soft);border-radius:var(--r);padding:10px 12px;display:grid;gap:8px}
+.pg-lv h4{margin:0;font:700 13px var(--label);letter-spacing:.12em;text-transform:uppercase;color:var(--blue);display:flex;justify-content:space-between;gap:8px}
+.pg-lv h4 small{font:600 12px var(--text);letter-spacing:0;text-transform:none;color:var(--muted)}
+.pg-lv p{margin:0;font-size:14px;color:var(--muted)}
+.pg-lvs{display:flex;flex-wrap:wrap;gap:6px}
+.pg-lvs span{background:var(--surface);border-radius:var(--r);padding:4px 8px;font:500 13.5px var(--mono)}
+.pg-lvs em{font-style:normal;color:var(--muted);margin-right:4px}
 .pg-vid{flex:none;color:var(--blue)}
 .pg-free{width:100%;margin:4px 0 14px;border:1.5px dashed var(--line);background:transparent;border-radius:var(--rl);padding:12px;font:700 14px var(--label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 /* base de ejercicios: columna negra */
